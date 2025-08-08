@@ -1,0 +1,256 @@
+/* static/dashboard.css */
+
+/* === ROOT VARIABLES & GLOBAL STYLES === */
+:root {
+    --bg-color: #f0f2f5;
+    --card-bg: #ffffff;
+    --text-color: #333;
+    --text-secondary: #666;
+    --border-color: #e0e0e0;
+    --primary-color: #2e7d32;
+    --primary-light: #66bb6a;
+    --warning-bg: #fff3cd;
+    --warning-border: #ffeeba;
+    --warning-text: #856404;
+    --shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    --border-radius: 12px;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 24px;
+    box-sizing: border-box;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+h1, h2, h3, h4, h5 {
+    margin-top: 0;
+    margin-bottom: 0.75em;
+    font-weight: 600;
+}
+
+p {
+    margin-top: 0;
+    margin-bottom: 1em;
+}
+
+ul, ol {
+    margin: 0;
+    padding-left: 20px;
+}
+
+/* === LAYOUT === */
+.dashboard-container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 0 16px;
+}
+
+.logout-container {
+    position: absolute;
+    top: 24px;
+    right: 24px;
+}
+
+.logout-btn {
+    background-color: var(--primary-color);
+    color: white;
+    padding: 8px 16px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: background-color 0.3s;
+}
+
+.logout-btn:hover {
+    background-color: #1b5e20;
+}
+
+.dashboard-header {
+    margin-bottom: 24px;
+}
+
+.dashboard-header h1 {
+    font-size: 2.25em;
+    margin-bottom: 4px;
+}
+
+.dashboard-header p {
+    font-size: 1.1em;
+    color: var(--text-secondary);
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(450px, 1fr));
+    gap: 32px;
+}
+
+/* === CARD STYLES === */
+.card {
+    background-color: var(--card-bg);
+    border-radius: var(--border-radius);
+    padding: 24px;
+    box-shadow: var(--shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.card-header {
+    font-size: 1.5em;
+    color: var(--text-color);
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 12px;
+}
+
+/* Early Warning System Card */
+.ews-card {
+    background-color: var(--warning-bg);
+    border: 1px solid var(--warning-border);
+    margin-bottom: 32px; /* Add space below EWS card */
+    grid-column: 1 / -1; /* Make it span full width */
+}
+
+.ews-card h2 {
+    color: var(--warning-text);
+    font-size: 1.3em;
+}
+
+.ews-card ul {
+    list-style-type: none;
+    padding-left: 0;
+}
+
+.ews-card li {
+    margin-bottom: 12px;
+    line-height: 1.5;
+}
+
+.ews-card .topic { color: #d35400; }
+.ews-card .region { color: #007bff; }
+.ews-card .footer {
+    font-size: 0.9em;
+    color: var(--warning-text);
+    margin-top: 8px;
+    font-style: italic;
+}
+
+/* === FILTER BAR STYLES === */
+.filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-group label {
+    font-size: 0.95em;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.filter-group select {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background-color: #fff;
+    min-width: 150px;
+}
+
+/* === CHART & MAP CONTAINER === */
+.chart-container,
+.map-container {
+    background-color: #f7fafc;
+    border-radius: 10px;
+    padding: 16px;
+    border: 1px solid var(--border-color);
+}
+
+/* static/dashboard.css */
+
+#map {
+    height: 380px; /* Pastikan tinggi ini ada */
+    width: 100%;
+    border-radius: 8px;
+    background-color: #eee; /* Tambahkan warna latar untuk melihat area peta */
+}
+
+.map-caption {
+    font-size: 0.9em;
+    color: var(--text-secondary);
+    margin-top: 8px;
+    text-align: center;
+}
+
+/* === INSIGHTS & LISTS === */
+.insight-list {
+    list-style: none;
+    padding: 0;
+    line-height: 1.8;
+}
+
+.insight-list li {
+    font-size: 1em;
+}
+
+/* Regional Topics Section */
+.regional-topics-container {
+    background-color: #f7fafc;
+    border-radius: 8px;
+    padding: 16px;
+    max-height: 350px;
+    overflow-y: auto;
+    border: 1px solid var(--border-color);
+}
+
+.regional-topics-container h4 {
+    margin: 0 0 12px 0;
+    color: var(--primary-color);
+    font-size: 1.1em;
+}
+
+.topic-list-card {
+    background: #fff;
+    border-radius: 6px;
+    padding: 16px;
+    border: 1px solid #e9ecef;
+}
+
+.topic-list-card h5 {
+    margin: 0 0 8px 0;
+    color: var(--primary-color);
+}
+
+.topic-list-card ol {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.topic-list-card li {
+    margin-bottom: 6px;
+    font-size: 0.95em;
+}
+
+.topic-list-card .footer-note {
+    margin-top: 12px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.85em;
+    color: #666;
+    font-style: italic;
+}

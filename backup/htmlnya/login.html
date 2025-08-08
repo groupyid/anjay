@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - PaTani</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
+</head>
+<body>
+    <div class="login-gede">
+        <div class="logo-container">
+            <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo PaTani">
+            <h1>P A T A N I</h1>
+            <p class="paragraf">Platform terpadu untuk para pahlawan agrikultur Indonesia. Dapatkan wawasan, berdiskusi, dan kembangkan pertanian Anda bersama kami.</p>
+            
+            <div class="prompt-carousel">
+                <div class="swiper-container">
+                    <div class="swiper-wrapper">
+                        <div class="swiper-slide">
+                            <div class="prompt-slide">
+                                <div class="category-label">Tips & Trik</div>
+                                <p class="text-prompt">"Bagaimana cara mengatasi hama wereng pada tanaman padi secara organik?"</p>
+                            </div>
+                        </div>
+                        <div class="swiper-slide">
+                            <div class="prompt-slide">
+                                <div class="category-label">Analisis Data</div>
+                                <p class="text-prompt">"Analisis tren harga jagung di pasar regional selama 3 bulan terakhir."</p>
+                            </div>
+                        </div>
+                        <div class="swiper-slide">
+                            <div class="prompt-slide">
+                                <div class="category-label">Rekomendasi</div>
+                                <p class="text-prompt">"Rekomendasi pupuk terbaik untuk meningkatkan hasil panen tomat di dataran rendah."</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="container-split">
+            <div class="login-container">
+                <h2>Login</h2>
+                
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="alert alert-{{ category }}">{{ message }}</div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <form method="POST" action="{{ url_for('login') }}">
+                    <label for="email">Alamat Email</label>
+                    <input type="email" id="email" name="email" placeholder="contoh@email.com" required>
+                    
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" placeholder="Masukkan password Anda" required>
+                    
+                    <button type="submit" class="btn-masuk">Masuk</button>
+                </form>
+                <div class="register">
+                    <p>Belum punya akun? <a href="{{ url_for('daftar_petani') }}">Daftar di sini</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+    <script>
+        var swiper = new Swiper('.swiper-container', {
+            loop: true,
+            autoplay: {
+                delay: 4000,
+                disableOnInteraction: false,
+            },
+            effect: 'fade',
+            fadeEffect: {
+                crossFade: true
+            },
+        });
+    </script>
+</body>
+</html>

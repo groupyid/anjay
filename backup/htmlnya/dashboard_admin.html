@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+</head>
+<body>
+    <div class="logout-container">
+        <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+    </div>
+    <div id="main-chat-container">
+        <div id="chat-area" style="width:100%;">
+            <div id="chat-header">
+                <h1>Dashboard Admin</h1>
+                <p>Analisis Interaksi Petani & Early Warning System</p>
+            </div>
+            <div style="padding:32px;">
+                {% if ews and ews|length > 0 %}
+                <div style="background:#fff3cd;border:1.5px solid #ffeeba;padding:18px 22px;border-radius:8px;margin-bottom:28px;">
+                    <h2 style="color:#b8860b;margin-top:0;">⚠️ Early Warning System</h2>
+                    <ul style="margin:0 0 0 18px;">
+                        {% for w in ews %}
+                        <li style="margin-bottom:7px;">
+                            <b>Topik:</b> <span style="color:#d35400">{{ w.topik }}</span> &mdash; <b>Wilayah:</b> <span style="color:#007bff">{{ w.region }}</span><br>
+                            <span style="font-size:0.98em;">Dibahas oleh <b>{{ w.user_count }}</b> user, <b>{{ w.chat_count }}</b> chat minggu ini.</span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <div style="font-size:0.97em;color:#b8860b;margin-top:8px;">Segera lakukan advokasi atau tindak lanjut jika diperlukan.</div>
+                </div>
+                {% endif %}
+                <div style="display:flex;flex-wrap:wrap;gap:32px;align-items:flex-start;">
+                    <div style="flex:1;min-width:320px;max-width:520px;">
+                        <h2>Grafik Tren Topik</h2>
+                        <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+                            <label for="filter-province" style="font-size:0.95em;color:#555;">Provinsi</label>
+                            <select id="filter-province" style="padding:6px 10px;border-radius:8px;border:1px solid #ddd;min-width:220px;">
+                                <option value="">Semua provinsi</option>
+                            </select>
+                            
+                            <label for="admin-region" style="font-size:0.95em;color:#555;">Kab/Kota</label>
+                            <select id="admin-region" style="padding:6px 10px;border-radius:8px;border:1px solid #ddd;min-width:220px;">
+                                <option value="">Semua kab/kota</option>
+                            </select>
+
+                            <label for="trend-period" style="font-size:0.95em;color:#555;">Periode</label>
+                            <select id="trend-period" style="padding:6px 10px;border-radius:8px;border:1px solid #ddd;">
+                                <option value="day">Harian</option>
+                                <option value="week" selected>Mingguan</option>
+                                <option value="month">Bulanan</option>
+                            </select>
+                            <label for="trend-days" style="font-size:0.95em;color:#555;">Rentang</label>
+                            <select id="trend-days" style="padding:6px 10px;border-radius:8px;border:1px solid #ddd;">
+                                <option value="30">30 hari</option>
+                                <option value="90" selected>90 hari</option>
+                                <option value="180">180 hari</option>
+                            </select>
+                        </div>
+                        <div style="background:#f7fafc;border-radius:12px;padding:12px;">
+                            <canvas id="trendChart" height="200"></canvas>
+                        </div>
+                         <script>
+                         // Update "Jumlah pertanyaan" insight live from chart data
+                         async function refreshInsightCount() {
+                             try {
+                                 const period = document.getElementById('trend-period').value;
+                                 const days = document.getElementById('trend-days').value;
+                                 const region = document.getElementById('admin-region').value;
+                                 const provinceId = document.getElementById('filter-province').value;
+                                 const params = new URLSearchParams({ period, days, region, province_id: provinceId });
+                                 const res = await fetch(`/api/admin/trends?${params.toString()}`);
+                                 const data = await res.json();
+                                 const total = (data.matrix || []).reduce((sum, row) => sum + row.reduce((a,b)=>a+b,0), 0);
+                                 const el = document.querySelector('#statistik-pengguna li');
+                                 if (el) el.innerHTML = `Jumlah pertanyaan minggu ini: <b>${total}</b>`;
+                             } catch (e) { /* silent */ }
+                         }
+                         </script>
+                        <h2 style="margin-top:20px;">Insight Statistik</h2>
+                        <div id="statistik-pengguna">
+                            <ul>
+                                <li>Jumlah pertanyaan minggu ini: <b>{{ jumlah_pertanyaan }}</b></li>
+                                <li>Wilayah aktif: <b>{{ wilayah_aktif }}</b></li>
+                            </ul>
+                        </div>
+                        
+                        {% if topic_by_region %}
+                        <h3 style="margin-top:24px;color:#2e7d32;">Tren Topik per Daerah</h3>
+                        <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;">
+                            <label for="regional-filter" style="font-size:0.95em;color:#555;">Filter Daerah:</label>
+                            <select id="regional-filter" style="padding:6px 10px;border-radius:8px;border:1px solid #ddd;min-width:200px;">
+                                <option value="">Nasional (Semua Daerah)</option>
+                                {% for region in topic_by_region.keys() %}
+                                <option value="{{ region }}">{{ region }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div id="regional-topics-container" style="background:#f7fafc;border-radius:8px;padding:16px;max-height:300px;overflow-y:auto;">
+                            <!-- National view (default) - shows Indonesia overall trends -->
+                            <div id="national-view">
+                                <h4 style="margin:0 0 12px 0;color:#1b5e20;font-size:1.1em;">🇮🇩 Tren Topik Nasional Indonesia</h4>
+                                <div style="background:#fff;border-radius:6px;padding:16px;">
+                                    <h5 style="margin:0 0 8px 0;color:#2e7d32;">Topik Terpopuler Secara Nasional:</h5>
+                                    <ol style="margin:0;padding-left:20px;">
+                                        {% for topic, count in top_topics %}
+                                        <li style="margin-bottom:6px;font-size:0.95em;">
+                                            <b>{{ topic }}</b>: {{ count }} pertanyaan
+                                        </li>
+                                        {% endfor %}
+                                    </ol>
+                                    <div style="margin-top:12px;padding-top:8px;border-top:1px solid #e0e0e0;font-size:0.85em;color:#666;">
+                                        <i>📊 Data agregat dari seluruh wilayah Indonesia</i>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Single region view (hidden by default) -->
+                            <div id="single-region-view" style="display:none;">
+                                {% for region, topics in topic_by_region.items() %}
+                                <div class="single-region-data" data-region="{{ region }}" style="display:none;">
+                                    <h4 style="margin:0 0 12px 0;color:#1b5e20;font-size:1.1em;">📍 {{ region }}</h4>
+                                    {% if topics %}
+                                    <div style="background:#fff;border-radius:6px;padding:16px;">
+                                        <h5 style="margin:0 0 8px 0;color:#2e7d32;">Topik Terpopuler:</h5>
+                                        <ol style="margin:0;padding-left:20px;">
+                                            {% for topic, count in topics.most_common(10) %}
+                                            <li style="margin-bottom:6px;font-size:0.95em;">
+                                                <b>{{ topic }}</b>: {{ count }} pertanyaan
+                                            </li>
+                                            {% endfor %}
+                                        </ol>
+                                    </div>
+                                    {% else %}
+                                    <div style="background:#fff;border-radius:6px;padding:16px;text-align:center;color:#666;">
+                                        <i>Tidak ada data topik untuk daerah ini</i>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        
+                        <script>
+                        // Regional filter functionality
+                        document.getElementById('regional-filter').addEventListener('change', function() {
+                            const selectedRegion = this.value;
+                            const nationalView = document.getElementById('national-view');
+                            const singleRegionView = document.getElementById('single-region-view');
+                            const singleRegionCards = document.querySelectorAll('.single-region-data');
+                            
+                            if (selectedRegion === '') {
+                                // Show national view (Indonesia overall trends)
+                                nationalView.style.display = 'block';
+                                singleRegionView.style.display = 'none';
+                            } else {
+                                // Show single region
+                                nationalView.style.display = 'none';
+                                singleRegionView.style.display = 'block';
+                                
+                                // Hide all single region cards
+                                singleRegionCards.forEach(card => {
+                                    card.style.display = 'none';
+                                });
+                                
+                                // Show selected region card
+                                const selectedCard = document.querySelector(`.single-region-data[data-region="${selectedRegion}"]`);
+                                if (selectedCard) {
+                                    selectedCard.style.display = 'block';
+                                }
+                            }
+                        });
+                        </script>
+                        {% endif %}
+                    </div>
+                    <div style="flex:1;min-width:320px;max-width:520px;">
+                        <h2>Peta Sebaran Topik Pertanyaan</h2>
+                        <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+                            <label for="filter-topic" style="font-size:0.95em;color:#555;">Topik</label>
+                            <select id="filter-topic" style="padding:6px 10px;border-radius:8px;border:1px solid #ddd;min-width:160px;">
+                                <option value="">Semua topik</option>
+                                {% for t in all_topics %}
+                                <option value="{{ t }}">{{ t }}</option>
+                                {% endfor %}
+                            </select>
+                            <label for="map-days" style="font-size:0.95em;color:#555;">Rentang</label>
+                            <select id="map-days" style="padding:6px 10px;border-radius:8px;border:1px solid #ddd;">
+                                <option value="30" selected>30 hari</option>
+                                <option value="90">90 hari</option>
+                                <option value="180">180 hari</option>
+                            </select>
+                        </div>
+                        <div id="peta-sebaran" style="background:#f7fafc;border-radius:12px;padding:16px;">
+                            <div id="map" style="height: 360px; width: 100%; border-radius: 10px;"></div>
+                            <div style="font-size:0.95em;color:#888;margin-top:8px;">Titik hanya menampilkan agregasi per wilayah untuk topik terpilih.</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top:32px;">
+                    <div style="margin-top:24px;">
+                        <h3>Insight Perilaku Pengguna</h3>
+                        <ul>
+                            <li>Jam aktif tertinggi: <b>{{ jam_aktif_tertinggi or '-' }}</b></li>
+                            <li>Rata-rata pertanyaan per user: <b>{{ rata2_pertanyaan_per_user or '-' }}</b></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+    // ============ Chart: Tren Topik ==========
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    let trendChart = null;
+    const periodEl = document.getElementById('trend-period');
+    const daysEl = document.getElementById('trend-days');
+    const provinceEl = document.getElementById('filter-province');
+    const regionEl = document.getElementById('admin-region');
+    const preselectedRegion = "{{ selected_region or '' }}";
+    const preselectedProvinceId = "{{ selected_province_id or '' }}";
+
+    function randomColor(seed) {
+        // simple deterministic color per topic
+        let h = 0;
+        for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360;
+        const s = 70, l = 50;
+        return `hsl(${h}, ${s}%, ${l}%)`;
+    }
+
+    async function populateProvinces() {
+        try {
+            const res = await fetch('/api/admin/provinces');
+            const json = await res.json();
+            const provinces = json.provinces || [];
+            for (let i = provinceEl.options.length - 1; i >= 1; i--) provinceEl.remove(i);
+            provinces.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = String(p.id);
+                opt.textContent = p.name;
+                if (preselectedProvinceId && String(p.id) === String(preselectedProvinceId)) opt.selected = true;
+                provinceEl.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Gagal memuat provinsi', e);
+        }
+    }
+
+    async function populateRegencies(provinceId) {
+        for (let i = regionEl.options.length - 1; i >= 1; i--) regionEl.remove(i);
+        if (!provinceId) return;
+        try {
+            const res = await fetch(`/api/admin/regencies?province_id=${encodeURIComponent(provinceId)}`);
+            const json = await res.json();
+            const regs = json.regencies || [];
+            regs.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r.name;
+                opt.textContent = r.name;
+                if (
+                    preselectedRegion && preselectedRegion === r.name &&
+                    String(provinceId) === String(preselectedProvinceId)
+                ) {
+                    opt.selected = true;
+                }
+                regionEl.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Gagal memuat kab/kota', e);
+        }
+    }
+
+         async function loadTrendChart() {
+         try {
+             const period = periodEl.value;
+             const days = daysEl.value;
+             const region = regionEl.value;
+             const provinceId = provinceEl.value;
+             const params = new URLSearchParams({ period, days, region, province_id: provinceId });
+             
+             console.log('Loading trend chart with params:', params.toString());
+             const res = await fetch(`/api/admin/trends?${params.toString()}`);
+             
+             if (!res.ok) {
+                 throw new Error(`HTTP error! status: ${res.status}`);
+             }
+             
+             const data = await res.json();
+             console.log('Trend chart data received:', data);
+             
+             if (data.error) {
+                 throw new Error(data.error);
+             }
+             
+             const labels = data.labels || [];
+             const topics = data.topics || [];
+             const matrix = data.matrix || [];
+             
+                          if (labels.length === 0 && topics.length === 0) {
+                 console.log('No data available for selected filters');
+             }
+
+         const datasets = topics.map((t, idx) => {
+             const color = randomColor(t + idx);
+             return {
+                 label: t,
+                 data: matrix[idx] || [],
+                 borderColor: color,
+                 backgroundColor: color.replace('hsl', 'hsla').replace('%)', '%, 0.15)'),
+                 tension: 0.2,
+                 fill: true
+             };
+         });
+
+         if (trendChart) trendChart.destroy();
+         
+         // Special handling for empty data
+         if (labels.length === 0 || topics.length === 0) {
+             // Show empty chart with message
+             const provinceName = provinceEl.options[provinceEl.selectedIndex]?.text || 'provinsi yang dipilih';
+             const emptyDataset = [{
+                 label: `Tidak ada data untuk ${provinceName}`,
+                 data: [],
+                 borderColor: '#ccc',
+                 backgroundColor: 'rgba(204, 204, 204, 0.1)',
+                 tension: 0.2,
+                 fill: false
+             }];
+             
+             trendChart = new Chart(trendCtx, {
+                 type: 'line',
+                 data: { labels: ['Tidak ada data'], datasets: emptyDataset },
+                 options: {
+                     responsive: true,
+                     plugins: {
+                         legend: { position: 'bottom' },
+                         tooltip: { 
+                             callbacks: {
+                                 label: () => `Tidak ada data chat untuk ${provinceName}`
+                             }
+                         }
+                     },
+                     scales: {
+                         x: { title: { display: true, text: 'Tanggal' } },
+                         y: { title: { display: true, text: 'Jumlah pertanyaan' }, beginAtZero: true, ticks: { precision: 0 } }
+                     }
+                 }
+             });
+         } else {
+             // Normal chart with data
+             trendChart = new Chart(trendCtx, {
+                 type: 'line',
+                 data: { labels, datasets },
+                 options: {
+                     responsive: true,
+                     plugins: {
+                         legend: { position: 'bottom' },
+                         tooltip: { mode: 'index', intersect: false }
+                     },
+                     interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                     scales: {
+                         x: { title: { display: true, text: 'Tanggal' } },
+                         y: { title: { display: true, text: 'Jumlah pertanyaan' }, beginAtZero: true, ticks: { precision: 0 } }
+                     }
+                 }
+             });
+         }
+ 
+         // Auto-pick first topic for map bubbles when none selected
+         if (!topicEl.value && topics.length > 0) {
+             topicEl.value = topics[0];
+         }
+         await refreshInsightCount();
+         } catch (error) {
+             console.error('Error loading trend chart:', error);
+             
+             // Clear existing chart if there's an error
+             if (trendChart) trendChart.destroy();
+             
+             // Show empty chart or error message
+             const emptyDatasets = [];
+             trendChart = new Chart(trendCtx, {
+                 type: 'line',
+                 data: { labels: [], datasets: emptyDatasets },
+                 options: {
+                     responsive: true,
+                     plugins: {
+                         legend: { position: 'bottom' },
+                         tooltip: { mode: 'index', intersect: false }
+                     },
+                     interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                     scales: {
+                         x: { title: { display: true, text: 'Tanggal' } },
+                         y: { title: { display: true, text: 'Jumlah pertanyaan' }, beginAtZero: true, ticks: { precision: 0 } }
+                     }
+                 }
+             });
+         }
+     }
+
+    periodEl.addEventListener('change', async () => {
+        await loadTrendChart();
+    });
+    daysEl.addEventListener('change', async () => {
+        await loadTrendChart();
+    });
+
+    provinceEl.addEventListener('change', async () => {
+        const pid = provinceEl.value;
+        await populateRegencies(pid);
+        regionEl.value = '';
+        const params = new URLSearchParams(window.location.search);
+        if (pid) params.set('province_id', pid); else params.delete('province_id');
+        params.delete('region');
+        const base = window.location.pathname;
+        history.replaceState(null, '', `${base}?${params.toString()}`);
+        await loadTrendChart();
+        await renderTopicBubbles(topicEl.value, mapDaysEl.value);
+        await refreshInsightCount();
+    });
+
+    regionEl.addEventListener('change', async () => {
+        const value = regionEl.value;
+        const params = new URLSearchParams(window.location.search);
+        if (value) params.set('region', value); else params.delete('region');
+        const pid = provinceEl.value;
+        if (pid) params.set('province_id', pid); else params.delete('province_id');
+        const base = window.location.pathname;
+        history.replaceState(null, '', `${base}?${params.toString()}`);
+        await loadTrendChart();
+        await renderTopicBubbles(topicEl.value, mapDaysEl.value);
+        await refreshInsightCount();
+    });
+
+    // ============ Peta: Distribusi Topik ==========
+    const defaultCenter = [-2.5, 117];
+    let map = null;
+    let bubbleLayer = null; // for topic distribution circles
+
+    function initMap() {
+        map = L.map('map').setView(defaultCenter, 4);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 18,
+            attribution: '© OpenStreetMap'
+        }).addTo(map);
+        bubbleLayer = L.layerGroup().addTo(map);
+    }
+
+    function radiusFromCount(count) {
+        const base = 6;
+        const scaled = Math.log(count + 1) * 6; // gentle scaling
+        return Math.max(base, scaled);
+    }
+
+    async function renderTopicBubbles(topic, days) {
+        bubbleLayer.clearLayers();
+        
+        const region = regionEl.value;
+        const provinceId = provinceEl.value;
+        
+        // Handle empty topic (Semua topik) by passing empty string
+        const topicParam = topic || '';
+        const params = new URLSearchParams({ topic: topicParam, days, region, province_id: provinceId });
+        
+        try {
+            console.log('Fetching topic distribution for:', { topic: topicParam, days, region, province_id: provinceId });
+            const res = await fetch(`/api/admin/topic-distribution?${params.toString()}`);
+            
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
+            
+            const json = await res.json();
+            const markers = json.markers || [];
+            
+            console.log(`Found ${markers.length} markers for topic: "${topicParam || 'Semua topik'}"`);
+            
+            if (markers.length === 0) {
+                console.log('No markers found for the selected filters');
+                map.setView(defaultCenter, 4);
+                return;
+            }
+            
+            const bounds = [];
+            markers.forEach(m => {
+                const radius = radiusFromCount(m.count);
+                const circle = L.circleMarker([m.lat, m.lon], {
+                    radius,
+                    color: '#2e7d32',
+                    fillColor: '#66bb6a',
+                    fillOpacity: 0.6,
+                    weight: 1
+                }).bindPopup(`<b>${topic || 'Semua topik'}</b>${m.region ? ' (' + m.region + ')' : ''}<br>Jumlah pertanyaan: <b>${m.count}</b>`);
+                circle.addTo(bubbleLayer);
+                bounds.push([m.lat, m.lon]);
+            });
+            
+            if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [20, 20] });
+            } else {
+                map.setView(defaultCenter, 4);
+            }
+        } catch (error) {
+            console.error('Error fetching topic distribution:', error);
+            map.setView(defaultCenter, 4);
+        }
+    }
+
+    const topicEl = document.getElementById('filter-topic');
+    const mapDaysEl = document.getElementById('map-days');
+    topicEl.addEventListener('change', () => renderTopicBubbles(topicEl.value, mapDaysEl.value));
+    // When topic is empty ("Semua topik"), show aggregated bubbles
+    if (!topicEl.value) { renderTopicBubbles('', mapDaysEl.value); }
+    mapDaysEl.addEventListener('change', () => renderTopicBubbles(topicEl.value, mapDaysEl.value));
+
+    // Initialize on load
+    window.addEventListener('DOMContentLoaded', async () => {
+        await populateProvinces();
+        const pid = preselectedProvinceId;
+        if (pid) {
+            await populateRegencies(pid);
+        }
+        initMap();
+        await loadTrendChart();
+        await renderTopicBubbles(topicEl.value, mapDaysEl.value);
+    });
+    </script>
+</body>
+</html>

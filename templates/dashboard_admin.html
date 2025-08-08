@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+</head>
+<body>
+    <div class="logout-container">
+        <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
+    </div>
+
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <h1>Dashboard Admin</h1>
+            <p>Analisis Interaksi Petani & Early Warning System</p>
+        </header>
+
+        {% if ews and ews|length > 0 %}
+        <div class="card ews-card">
+            <h2>⚠️ Early Warning System</h2>
+            <ul>
+                {% for w in ews %}
+                <li>
+                    <b>Topik:</b> <span class="topic">{{ w.topik }}</span> &mdash; <b>Wilayah:</b> <span class="region">{{ w.region }}</span><br>
+                    <small>Dibahas oleh <b>{{ w.user_count }}</b> user, <b>{{ w.chat_count }}</b> chat minggu ini.</small>
+                </li>
+                {% endfor %}
+            </ul>
+            <div class="footer">Segera lakukan advokasi atau tindak lanjut jika diperlukan.</div>
+        </div>
+        {% endif %}
+
+        <main class="dashboard-grid">
+            <section class="card">
+                <h2 class="card-header">Analisis Tren Topik</h2>
+                
+                <div class="filter-bar">
+                    <div class="filter-group">
+                        <label for="filter-province">Provinsi</label>
+                        <select id="filter-province">
+                            <option value="">Semua Provinsi</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="admin-region">Kab/Kota</label>
+                        <select id="admin-region">
+                            <option value="">Semua Kab/Kota</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="trend-period">Periode</label>
+                        <select id="trend-period">
+                            <option value="day">Harian</option>
+                            <option value="week" selected>Mingguan</option>
+                            <option value="month">Bulanan</option>
+                        </select>
+                    </div>
+                     <div class="filter-group">
+                        <label for="trend-days">Rentang</label>
+                        <select id="trend-days">
+                            <option value="30">30 hari</option>
+                            <option value="90" selected>90 hari</option>
+                            <option value="180">180 hari</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <canvas id="trendChart" height="220"></canvas>
+                </div>
+
+                <h3 class="card-header" style="font-size: 1.3em; border-top: 1px solid var(--border-color); padding-top: 24px; margin-top: 16px;">Statistik & Insight</h3>
+                <div id="statistik-pengguna">
+                    <ul class="insight-list">
+                        <li>Jumlah pertanyaan minggu ini: <b>{{ jumlah_pertanyaan }}</b></li>
+                        <li>Wilayah aktif: <b>{{ wilayah_aktif }}</b></li>
+                        <li>Jam aktif tertinggi: <b>{{ jam_aktif_tertinggi or '-' }}</b></li>
+                        <li>Rata-rata pertanyaan per user: <b>{{ rata2_pertanyaan_per_user or '-' }}</b></li>
+                    </ul>
+                </div>
+            </section>
+
+            <section class="card">
+                <h2 class="card-header">Peta Sebaran & Topik Regional</h2>
+                
+                <div class="filter-bar">
+                    <div class="filter-group">
+                        <label for="filter-topic">Topik Peta</label>
+                        <select id="filter-topic">
+                            <option value="">Semua Topik</option>
+                            {% for t in all_topics %}
+                            <option value="{{ t }}">{{ t }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="map-days">Rentang Peta</label>
+                        <select id="map-days">
+                            <option value="30" selected>30 hari</option>
+                            <option value="90">90 hari</option>
+                            <option value="180">180 hari</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="map-container">
+                    <div id="map"></div>
+                    <p class="map-caption">Titik menampilkan agregasi per wilayah untuk topik terpilih.</p>
+                </div>
+
+                {% if topic_by_region %}
+                <div class="filter-bar" style="margin-top: 16px;">
+                    <div class="filter-group">
+                        <label for="regional-filter">Lihat Tren Topik di:</label>
+                        <select id="regional-filter">
+                            <option value="">Nasional (Semua Daerah)</option>
+                            {% for region in topic_by_region.keys() %}
+                            <option value="{{ region }}">{{ region }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+
+                <div id="regional-topics-container" class="regional-topics-container">
+                    <div id="national-view">
+                        <h4>🇮🇩 Tren Topik Nasional</h4>
+                        <div class="topic-list-card">
+                            <h5>Topik Terpopuler Secara Nasional:</h5>
+                            <ol>
+                                {% for topic, count in top_topics %}
+                                <li><b>{{ topic }}</b>: {{ count }} pertanyaan</li>
+                                {% endfor %}
+                            </ol>
+                            <div class="footer-note">📊 Data agregat dari seluruh wilayah Indonesia</div>
+                        </div>
+                    </div>
+                    
+                    <div id="single-region-view" style="display:none;">
+                        {% for region, topics in topic_by_region.items() %}
+                        <div class="single-region-data" data-region="{{ region }}" style="display:none;">
+                            <h4>📍 {{ region }}</h4>
+                            <div class="topic-list-card">
+                                {% if topics %}
+                                    <h5>Topik Terpopuler:</h5>
+                                    <ol>
+                                        {% for topic, count in topics.most_common(10) %}
+                                        <li><b>{{ topic }}</b>: {{ count }} pertanyaan</li>
+                                        {% endfor %}
+                                    </ol>
+                                {% else %}
+                                    <p style="text-align:center; color: var(--text-secondary);"><i>Tidak ada data topik untuk daerah ini.</i></p>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% endif %}
+            </section>
+        </main>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+    // ============ Chart: Tren Topik ==========
+    const trendCtx = document.getElementById('trendChart').getContext('2d');
+    let trendChart = null;
+    const periodEl = document.getElementById('trend-period');
+    const daysEl = document.getElementById('trend-days');
+    const provinceEl = document.getElementById('filter-province');
+    const regionEl = document.getElementById('admin-region');
+    const preselectedRegion = "{{ selected_region or '' }}";
+    const preselectedProvinceId = "{{ selected_province_id or '' }}";
+
+    function randomColor(seed) {
+        let h = 0;
+        for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) % 360;
+        const s = 70, l = 50;
+        return `hsl(${h}, ${s}%, ${l}%)`;
+    }
+
+    async function populateProvinces() {
+        try {
+            const res = await fetch('/api/admin/provinces');
+            const json = await res.json();
+            const provinces = json.provinces || [];
+            for (let i = provinceEl.options.length - 1; i >= 1; i--) provinceEl.remove(i);
+            provinces.forEach(p => {
+                const opt = document.createElement('option');
+                opt.value = String(p.id);
+                opt.textContent = p.name;
+                if (preselectedProvinceId && String(p.id) === String(preselectedProvinceId)) opt.selected = true;
+                provinceEl.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Gagal memuat provinsi', e);
+        }
+    }
+
+    async function populateRegencies(provinceId) {
+        for (let i = regionEl.options.length - 1; i >= 1; i--) regionEl.remove(i);
+        if (!provinceId) return;
+        try {
+            const res = await fetch(`/api/admin/regencies?province_id=${encodeURIComponent(provinceId)}`);
+            const json = await res.json();
+            const regs = json.regencies || [];
+            regs.forEach(r => {
+                const opt = document.createElement('option');
+                opt.value = r.name;
+                opt.textContent = r.name;
+                if (preselectedRegion && preselectedRegion === r.name && String(provinceId) === String(preselectedProvinceId)) {
+                    opt.selected = true;
+                }
+                regionEl.appendChild(opt);
+            });
+        } catch (e) {
+            console.error('Gagal memuat kab/kota', e);
+        }
+    }
+
+    async function refreshInsightCount() {
+        try {
+            const period = document.getElementById('trend-period').value;
+            const days = document.getElementById('trend-days').value;
+            const region = document.getElementById('admin-region').value;
+            const provinceId = document.getElementById('filter-province').value;
+            const params = new URLSearchParams({ period, days, region, province_id: provinceId });
+            const res = await fetch(`/api/admin/trends?${params.toString()}`);
+            const data = await res.json();
+            const total = (data.matrix || []).reduce((sum, row) => sum + row.reduce((a,b)=>a+b,0), 0);
+            const el = document.querySelector('#statistik-pengguna li:first-child');
+            if (el) el.innerHTML = `Jumlah pertanyaan minggu ini: <b>${total}</b>`;
+        } catch (e) { /* silent */ }
+    }
+    
+    async function loadTrendChart() {
+         try {
+             const period = periodEl.value;
+             const days = daysEl.value;
+             const region = regionEl.value;
+             const provinceId = provinceEl.value;
+             const params = new URLSearchParams({ period, days, region, province_id: provinceId });
+             const res = await fetch(`/api/admin/trends?${params.toString()}`);
+             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+             const data = await res.json();
+             if (data.error) throw new Error(data.error);
+             
+             const labels = data.labels || [];
+             const topics = data.topics || [];
+             const matrix = data.matrix || [];
+             
+             const datasets = topics.map((t, idx) => {
+                 const color = randomColor(t);
+                 return {
+                     label: t,
+                     data: matrix[idx] || [],
+                     borderColor: color,
+                     backgroundColor: color.replace('hsl', 'hsla').replace('%)', '%, 0.15)'),
+                     tension: 0.3,
+                     fill: true,
+                     pointRadius: 2,
+                     pointHoverRadius: 5
+                 };
+             });
+
+             if (trendChart) trendChart.destroy();
+             
+             const options = {
+                 responsive: true,
+                 maintainAspectRatio: false,
+                 plugins: {
+                     legend: { position: 'bottom', labels: { usePointStyle: true, boxWidth: 8 } },
+                     tooltip: { mode: 'index', intersect: false }
+                 },
+                 interaction: { mode: 'nearest', axis: 'x', intersect: false },
+                 scales: {
+                     x: { title: { display: true, text: 'Tanggal' }, grid: { display: false } },
+                     y: { title: { display: true, text: 'Jumlah Pertanyaan' }, beginAtZero: true, ticks: { precision: 0 } }
+                 }
+             };
+
+             if (labels.length === 0 || datasets.length === 0) {
+                 const regionText = regionEl.value || (provinceEl.options[provinceEl.selectedIndex]?.text || 'filter yang dipilih');
+                 options.plugins.title = { display: true, text: `Tidak ada data untuk ${regionText}`, font: { size: 16 }, color: '#999' };
+             }
+             
+             trendChart = new Chart(trendCtx, { type: 'line', data: { labels, datasets }, options });
+             
+             if (!topicEl.value && topics.length > 0) {
+                 topicEl.value = topics[0];
+             }
+             await refreshInsightCount();
+         } catch (error) {
+             console.error('Error loading trend chart:', error);
+             if (trendChart) trendChart.destroy();
+         }
+    }
+
+    // ============ Peta: Distribusi Topik ==========
+    const defaultCenter = [-2.5, 117];
+    let map = null;
+    let bubbleLayer = null;
+
+function initMap() {
+    // Cek jika peta sudah diinisialisasi, hapus dulu untuk menghindari duplikasi
+    if (map != null) {
+        map.remove();
+        map = null;
+    }
+
+    // Pastikan elemen #map ada sebelum membuat peta
+    const mapElement = document.getElementById('map');
+    if (!mapElement) {
+        console.error("Elemen #map tidak ditemukan!");
+        return;
+    }
+
+    // Inisialisasi peta
+    map = L.map('map').setView(defaultCenter, 4.5);
+
+    // Gunakan tile layer dari OpenStreetMap yang lebih umum dan gratis
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19
+    }).addTo(map);
+
+    // Tambahkan error handling jika tile layer gagal dimuat
+    map.on('tileerror', function(error, tile) {
+        console.error('TileLayer error:', error);
+    });
+
+    // Inisialisasi layer untuk bubble
+    bubbleLayer = L.layerGroup().addTo(map);
+}
+
+    function radiusFromCount(count) {
+        return 6 + Math.log(count + 1) * 5;
+    }
+
+    async function renderTopicBubbles(topic, days) {
+        bubbleLayer.clearLayers();
+        const region = regionEl.value;
+        const provinceId = provinceEl.value;
+        const topicParam = topic || '';
+        const params = new URLSearchParams({ topic: topicParam, days, region, province_id: provinceId });
+        
+        try {
+            const res = await fetch(`/api/admin/topic-distribution?${params.toString()}`);
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            const json = await res.json();
+            const markers = json.markers || [];
+            
+            if (markers.length === 0) {
+                map.setView(defaultCenter, 4.5);
+                return;
+            }
+            
+            const bounds = [];
+            markers.forEach(m => {
+                const circle = L.circleMarker([m.lat, m.lon], {
+                    radius: radiusFromCount(m.count),
+                    color: 'var(--primary-color)',
+                    fillColor: 'var(--primary-light)',
+                    fillOpacity: 0.7,
+                    weight: 1.5
+                }).bindPopup(`<b>${m.region}</b><br>Topik: ${topic || 'Semua'}<br>Jumlah: <b>${m.count}</b>`);
+                circle.addTo(bubbleLayer);
+                bounds.push([m.lat, m.lon]);
+            });
+            
+            if (bounds.length > 0) {
+                map.fitBounds(bounds, { padding: [40, 40], maxZoom: 10 });
+            }
+        } catch (error) {
+            console.error('Error fetching topic distribution:', error);
+            map.setView(defaultCenter, 4.5);
+        }
+    }
+
+    // ============ Event Listeners & Initialization ==========
+    const topicEl = document.getElementById('filter-topic');
+    const mapDaysEl = document.getElementById('map-days');
+
+    function addDebouncedListener(element, event, func, delay) {
+        let timeout;
+        element.addEventListener(event, (...args) => {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func(...args), delay);
+        });
+    }
+
+    addDebouncedListener(periodEl, 'change', loadTrendChart, 200);
+    addDebouncedListener(daysEl, 'change', loadTrendChart, 200);
+
+    provinceEl.addEventListener('change', async () => {
+        const pid = provinceEl.value;
+        await populateRegencies(pid);
+        regionEl.value = '';
+        history.replaceState(null, '', `${window.location.pathname}?province_id=${pid}`);
+        await loadTrendChart();
+        await renderTopicBubbles(topicEl.value, mapDaysEl.value);
+    });
+
+    regionEl.addEventListener('change', async () => {
+        const value = regionEl.value;
+        const pid = provinceEl.value;
+        const params = new URLSearchParams();
+        if (pid) params.set('province_id', pid);
+        if (value) params.set('region', value);
+        history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+        await loadTrendChart();
+        await renderTopicBubbles(topicEl.value, mapDaysEl.value);
+    });
+    
+    addDebouncedListener(topicEl, 'change', () => renderTopicBubbles(topicEl.value, mapDaysEl.value), 200);
+    addDebouncedListener(mapDaysEl, 'change', () => renderTopicBubbles(topicEl.value, mapDaysEl.value), 200);
+
+const regionalFilterElement = document.getElementById('regional-filter');
+
+// PENTING: Hanya tambahkan event listener jika elemennya benar-benar ada di halaman
+if (regionalFilterElement) {
+    regionalFilterElement.addEventListener('change', function() {
+        const selectedRegion = this.value;
+        const nationalView = document.getElementById('national-view');
+        const singleRegionView = document.getElementById('single-region-view');
+
+        if (nationalView) nationalView.style.display = (selectedRegion === '') ? 'block' : 'none';
+        if (singleRegionView) singleRegionView.style.display = (selectedRegion === '') ? 'none' : 'block';
+
+        document.querySelectorAll('.single-region-data').forEach(card => {
+            card.style.display = (card.dataset.region === selectedRegion) ? 'block' : 'none';
+        });
+    });
+}
+
+    window.addEventListener('DOMContentLoaded', async () => {
+        await populateProvinces();
+        if (preselectedProvinceId) {
+            await populateRegencies(preselectedProvinceId);
+        }
+        initMap();
+        await loadTrendChart();
+        await renderTopicBubbles(topicEl.value, mapDaysEl.value);
+    });
+    </script>
+</body>
+</html>

@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PaTani - Penyuluh Pertanian Digital</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='main.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify@3.0.6/dist/purify.min.js"></script>
+</head>
+<body>
+    <div class="main-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo PaTani" class="logo">
+                <h1>PaTani</h1>
+                <button class="sidebar-toggle-btn">
+                    <i class="fas fa-bars"></i>
+                </button>
+            </div>
+            <button id="btn-new-session" class="btn-new-chat">
+                <i class="fas fa-plus"></i>
+                <span>Mulai Chat Baru</span>
+            </button>
+            <nav class="session-nav">
+                <h3>Riwayat Chat</h3>
+                <div class="session-list">
+                    {% if sessions %}
+                        {% for s in sessions %}
+                            <div class="session-item{% if s.session_id == active_session %} active{% endif %}" onclick="window.location='?session={{ s.session_id }}'">
+                                <span class="session-title">{{ s.title }}</span>
+                                <button class="delete-session-btn" data-session-id="{{ s.session_id }}" title="Hapus chat">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="no-history">Belum ada riwayat.</div>
+                    {% endif %}
+                </div>
+            </nav>
+            <div class="sidebar-footer">
+                <a href="{{ url_for('logout') }}" class="logout-btn">
+                    <i class="fas fa-sign-out-alt"></i>
+                    <span>Logout</span>
+                </a>
+            </div>
+        </aside>
+
+        <main class="chat-area">
+            <header class="chat-header">
+                <div class="chat-header-content">
+                    <h2>Penyuluh Pertanian Digital</h2>
+                    <p>Tanyakan apapun seputar pertanian kepada asisten AI kami.</p>
+                </div>
+            </header>
+
+            <div id="chat-messages" class="chat-messages">
+                {% if not active_chats %}
+                    <div class="message bot-message welcome-message">
+                        <div class="markdown-answer">
+                            <p>Halo! Saya PaTani, asisten AI Anda. Silakan ajukan pertanyaan seputar dunia pertanian.</p>
+                        </div>
+                        <div class="smart-actions"></div>
+                    </div>
+                {% else %}
+                    {% for chat in active_chats %}
+                        <div class="message user-message"><p>{{ chat.question }}</p></div>
+                        <div class="message bot-message">
+                            <div class="markdown-answer">{{ chat.answer | safe }}</div>
+                            
+                            {% if chat.sources and chat.sources|length > 0 %}
+                                {% set srcs = chat.sources if chat.sources is not string else chat.sources | from_json %}
+                                {% if srcs %}
+                                <div class="chat-sources card-layout">
+                                    <div class="source-icon"><i class="fas fa-book-open"></i></div>
+                                    <div class="source-info">
+                                        <h4>Sumber Jawaban</h4>
+                                        <a href="{{ (srcs[0] or {}).get('url') }}" download>{{ (srcs[0] or {}).get('display_name', 'Dokumen') }}</a>
+                                    </div>
+                                </div>
+                                {% endif %}
+                            {% endif %}
+
+                            <div class="smart-actions" id="smart-actions-{{ loop.index }}">
+                                </div>
+                        </div>
+                        <script>
+                            (function() {
+                                const messageElement = document.querySelector('#chat-messages > div:nth-child({{ loop.index * 2 }})');
+                                const markdownAnswer = messageElement.querySelector('.markdown-answer');
+                                const answerText = markdownAnswer.textContent;
+                                markdownAnswer.innerHTML = DOMPurify.sanitize(marked.parse(answerText));
+                                const smartActionsContainer = document.getElementById('smart-actions-{{ loop.index }}');
+                                populateSmartActions(smartActionsContainer, answerText);
+                            })();
+                        </script>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <div class="chat-input-container">
+                <form id="chat-form" class="chat-form">
+                    <input type="text" id="user-input" placeholder="Ketik pertanyaan Anda di sini..." autocomplete="off">
+                    <button type="submit" title="Kirim Pesan">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </main>
+    </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const chatMessages = document.getElementById('chat-messages');
+        const chatForm = document.getElementById('chat-form');
+        const userInput = document.getElementById('user-input');
+        const newSessionBtn = document.getElementById('btn-new-session');
+        const sidebar = document.querySelector('.sidebar');
+        const mainContainer = document.querySelector('.main-container');
+        const sidebarToggleBtn = document.querySelector('.sidebar-toggle-btn');
+
+        if (sidebarToggleBtn && sidebar) {
+            sidebarToggleBtn.addEventListener('click', () => {
+                const isMobile = window.matchMedia('(max-width: 768px)').matches;
+                if (isMobile) {
+                    sidebar.classList.toggle('open');
+                    mainContainer.classList.toggle('sidebar-open-overlay');
+                } else {
+                    sidebar.classList.toggle('collapsed');
+                    mainContainer.classList.toggle('sidebar-collapsed');
+                }
+            });
+        }
+
+        mainContainer.addEventListener('click', (e) => {
+            const isMobile = window.matchMedia('(max-width: 768px)').matches;
+            if (isMobile && sidebar.classList.contains('open') && !sidebar.contains(e.target) && !sidebarToggleBtn.contains(e.target)) {
+                sidebar.classList.remove('open');
+                mainContainer.classList.remove('sidebar-open-overlay');
+            }
+        });
+        
+        if (chatMessages) {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function getSessionId() {
+            return new URLSearchParams(window.location.search).get('session');
+        }
+
+        newSessionBtn.addEventListener('click', async () => {
+            const response = await fetch('/start_session', { method: 'POST' });
+            const data = await response.json();
+            if (data.session_id) {
+                window.location.href = '?session=' + data.session_id;
+            } else {
+                window.location.href = '?';
+            }
+        });
+
+        document.querySelectorAll('.delete-session-btn').forEach(button => {
+            button.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const sessionId = button.dataset.sessionId;
+                if (confirm('Apakah Anda yakin ingin menghapus riwayat chat ini?')) {
+                    const response = await fetch('/delete_session', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ session_id: sessionId })
+                    });
+                    if (response.ok) {
+                        window.location.href = '?';
+                    } else {
+                        alert('Gagal menghapus sesi.');
+                    }
+                }
+            });
+        });
+
+        chatForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userMessage = userInput.value.trim();
+            if (!userMessage) return;
+
+            const welcomeMessage = chatMessages.querySelector('.welcome-message');
+            if(welcomeMessage) welcomeMessage.remove();
+
+            addMessage(userMessage, 'user');
+            userInput.value = '';
+            const loadingIndicator = addMessage('', 'bot', true);
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: userMessage,
+                        session_id: getSessionId()
+                    })
+                });
+                
+                loadingIndicator.remove();
+
+                if (!response.ok) {
+                    addMessage('Maaf, terjadi kesalahan saat menghubungi server.', 'bot');
+                    return;
+                }
+
+                const data = await response.json();
+                addMessage(data.reply, 'bot', false, data.sources);
+
+            } catch (error) {
+                loadingIndicator.remove();
+                addMessage('Tidak dapat terhubung ke server. Periksa koneksi Anda.', 'bot');
+            }
+        });
+
+        function addMessage(text, sender, isLoading = false, sources = []) {
+            const messageElement = document.createElement('div');
+            messageElement.classList.add('message', `${sender}-message`);
+
+            if (isLoading) {
+                messageElement.innerHTML = '<div class="typing-indicator"><span></span><span></span><span></span></div>';
+            } else if (sender === 'bot') {
+                const botContent = document.createElement('div');
+                
+                const markdownAnswer = document.createElement('div');
+                markdownAnswer.className = 'markdown-answer';
+                markdownAnswer.innerHTML = DOMPurify.sanitize(marked.parse(text));
+                botContent.appendChild(markdownAnswer);
+
+                if (sources && sources.length > 0) {
+                    const source = sources[0];
+                    const sourceCard = document.createElement('div');
+                    sourceCard.className = 'chat-sources card-layout';
+                    sourceCard.innerHTML = `
+                        <div class="source-icon"><i class="fas fa-book-open"></i></div>
+                        <div class="source-info">
+                            <h4>Sumber Jawaban</h4>
+                            <a href="${source.url}" download>${source.display_name}</a>
+                        </div>
+                    `;
+                    botContent.appendChild(sourceCard);
+                }
+
+                const actionsContainer = document.createElement('div');
+                actionsContainer.className = 'smart-actions';
+                populateSmartActions(actionsContainer, text);
+                botContent.appendChild(actionsContainer);
+
+                messageElement.appendChild(botContent);
+
+            } else {
+                const p = document.createElement('p');
+                p.textContent = text;
+                messageElement.appendChild(p);
+            }
+
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+            return messageElement;
+        }
+
+        function populateSmartActions(container, answerText) {
+            container.innerHTML = '';
+            const smartActionKeywords = [
+                'Jelaskan lebih lanjut',
+                'Berikan contoh',
+                'Apa dampaknya?',
+                'Bagaimana cara mengatasinya?',
+                'Faktor penyebabnya apa?',
+                'Rekomendasi solusi lain'
+            ];
+            
+            const shuffledActions = smartActionKeywords.sort(() => 0.5 - Math.random());
+            const selectedActions = shuffledActions.slice(0, 3);
+
+            selectedActions.forEach(keyword => {
+                const actionBtn = document.createElement('button');
+                actionBtn.className = 'action-btn';
+                actionBtn.textContent = keyword;
+                actionBtn.onclick = () => {
+                    const context = answerText.substring(0, Math.min(answerText.length, 50)); 
+                    userInput.value = keyword + ' tentang "' + context + (answerText.length > 50 ? '..."' : '" ');
+                    chatForm.dispatchEvent(new Event('submit'));
+                };
+                container.appendChild(actionBtn);
+            });
+        }
+    });
+    </script>
+</body>
+</html>

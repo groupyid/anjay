@@ -1,0 +1,355 @@
+
+:root {
+    --green-accent: #00C676;
+    --green-deep: #007E53;
+    --light-bg: #F4F6F8;
+    --card-bg: rgba(255, 255, 255, 0.92);
+    --text-dark: #222;
+    --input-bg: #ffffff;
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    /* background-color: var(--light-bg); */
+    background-image: url("/static/images/bgls4.jpg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    overflow: hidden;
+    color: var(--text-dark);
+    position: relative;
+}
+
+.login-gede {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 90%;
+    height: 90%;
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.05);
+    backdrop-filter: blur(6px);
+}
+
+.container-split {
+    width: 50%;
+    height: 100%;
+    display: flex; /* Mengubah menjadi flex container */
+    align-items: center;
+    justify-content: space-evenly; /* Menyesuaikan jarak antar elemen */
+    background: rgba(255, 255, 255, 0.5);
+    backdrop-filter: blur(12px);
+    padding: 20px; /* Tambahkan padding untuk ruang */
+}
+
+.login-container {
+    background: var(--card-bg);
+    border-radius: 32px 12px 32px 12px;
+    padding: 40px;
+    box-shadow: 0px 6px 24px rgba(0, 198, 118, 0.12);
+    width: 420px;
+    max-width: 90%;
+    height: fit-content; /* Sesuaikan tinggi */
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+.login-options {
+    background: var(--card-bg);
+    border-radius: 12px 32px 12px 32px; /* Mirroring login-container border-radius */
+    padding: 40px;
+    box-shadow: 0px 6px 24px rgba(0, 198, 118, 0.12);
+    width: 420px;
+    max-width: 90%;
+    height: fit-content; /* Sesuaikan tinggi */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 24px;
+}
+
+.login-options h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--green-deep);
+    margin-bottom: 8px;
+}
+
+.login-options p {
+    font-size: 1.1rem;
+    color: #444;
+    margin-bottom: 16px;
+}
+
+.login-options .option-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 100%;
+}
+
+.login-options .main-option-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    padding: 20px;
+    border-radius: 12px;
+    border: 2px solid #ccc; /* Menggunakan warna border netral */
+    background-color: #f0f0f0; /* Warna latar belakang netral */
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: var(--text-dark);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    text-decoration: none; /* Penting untuk tautan */
+}
+
+.login-options .main-option-button:hover {
+    border-color: var(--green-accent);
+    background-color: rgba(0, 198, 118, 0.1); /* Warna latar belakang hover */
+    color: var(--green-deep);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.1);
+}
+
+.login-options .main-option-button svg {
+    width: 36px;
+    height: 36px;
+    color: var(--green-accent);
+    transition: color 0.3s ease;
+}
+
+.login-options .main-option-button:hover svg {
+    color: var(--green-deep);
+}
+
+.btn-masuk{
+    /* border-style: solid; */
+    margin-top: 15px;
+}
+
+h2 {
+    font-family: 'Poppins', sans-serif;
+    text-align: center;
+    margin-bottom: 1.5rem;
+    color: var(--green-deep);
+    font-weight: 600;
+}
+
+form {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+label {
+    text-align: left;
+    font-weight: 600;
+    color: #333;
+}
+
+input[type="email"],
+input[type="password"],
+select {
+    background-color: var(--input-bg);
+    color: var(--text-dark);
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    font-size: 1rem;
+    outline: none;
+}
+
+input::placeholder {
+    color: #999;
+}
+
+button {
+    background-color: var(--green-accent);
+    color: white;
+    padding: 12px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 12px rgba(0, 198, 118, 0.2);
+}
+
+button:hover {
+    background-color: var(--green-deep);
+    box-shadow: 0 0 20px rgba(0, 198, 118, 0.3);
+}
+
+.error {
+    color: #D8000C;
+    font-size: 0.95rem;
+    margin-bottom: 1rem;
+}
+
+.register {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    text-align: center;
+}
+
+.register a {
+    color: var(--green-accent);
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.register a:hover {
+    text-decoration: underline;
+}
+
+.logo-container {
+    width: 50%;
+    height: 100%;
+    background-color: rgba(255,255,255,0.75);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    /* padding: 2rem; */
+    text-align: center;
+}
+
+.logo-container img {
+    background-color: white;
+    border-radius: 50%;
+    width: 120px;
+    height: 120px;
+    margin-bottom: 1.2rem;
+    object-fit: cover;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+}
+
+.logo-container h1 {
+    font-family: 'Poppins', sans-serif;
+    font-size: 2rem;
+    color: var(--green-deep);
+    margin-bottom: 0.5rem;
+}
+
+.paragraf {
+    width: 70%;
+    font-size: 1.1rem;
+    color: #444;
+    line-height: 1.5;
+    margin-bottom: 2rem;
+}
+
+/* Carousel Styles */
+/* === Gaya Carousel Baru === */
+
+.prompt-carousel {
+    width: 90%;
+    /* border-style: solid; */
+    border-radius: 16px; /* Sudut lebih tumpul */
+    max-width: 500px; /* Sedikit lebih lebar untuk tampilan lebih baik */
+    margin-top: 2rem; /* Beri jarak dari paragraf di atasnya */
+}
+
+/* Menghilangkan text-shadow dari wrapper Swiper jika ada */
+.swiper-slide {
+    text-shadow: none;
+    border-radius: 16px; /* Sudut lebih tumpul */
+    /* border-style: solid; */
+}
+
+.prompt-slide {
+    /* Menggunakan efek kaca yang lebih subtil */
+    background: rgba(255, 255, 255, 0.4); 
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+
+    /* Border tipis untuk definisi */
+    border: 1px solid rgba(255, 255, 255, 0.5);
+    border-radius: 16px; /* Sudut lebih tumpul */
+    
+    padding: 20px;
+    height: 140px; /* Sedikit lebih tinggi */
+    text-align: left;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; /* Konten mulai dari atas */
+    transition: all 0.3s ease;
+}
+
+.prompt-slide:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+}
+
+.category-label {
+    background: var(--green-accent); /* Menggunakan variabel warna asli Anda */
+    color: white;
+    padding: 5px 14px; /* Sedikit lebih besar */
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    display: inline-block; /* Agar background pas dengan teks */
+    width: fit-content;
+    margin-bottom: 12px; /* Jarak ke teks prompt */
+}
+
+.text-prompt {
+    color: var(--text-dark); /* Menggunakan variabel warna asli Anda */
+    font-size: 1rem; /* Sedikit lebih besar agar mudah dibaca */
+    font-weight: 500; /* Sedikit lebih tebal */
+    line-height: 1.5;
+    margin: 0;
+}
+
+ @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 900px) {
+    .login-gede {
+        flex-direction: column;
+        width: 95%;
+        height: auto;
+    }
+
+    .logo-container,
+    .container-split {
+        width: 100%;
+        height: auto;
+        padding: 2rem 1rem;
+    }
+
+    .paragraf {
+        width: 90%;
+    }
+
+    .prompt-carousel {
+        border-radius: 16px; 
+        width: 90%;
+        height: 120px;
+    }
+
+    .prompt-slide {
+        height: 100px;
+        padding: 15px;
+    }
+
+    .text-prompt {
+        font-size: 0.85rem;
+    }
+}
