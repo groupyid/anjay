@@ -436,49 +436,92 @@ def register_routes(app):
             return jsonify({'status': 'error', 'message': 'Invalid location data'}), 400
             
         user = User.query.get(session['user_id'])
-        if user:
+        if not user:
+            return jsonify({'status': 'error', 'message': 'User not found'}), 404
+            
+        try:
+            lat = float(data['latitude'])
+            lon = float(data['longitude'])
+            
+            print(f"DEBUG: Updating location for user {user.name}: {lat}, {lon}")
+            
+            user.latitude = lat
+            user.longitude = lon
+            detected_region = None
+
+            # Reverse Geocoding using OpenStreetMap
             try:
-                lat = float(data['latitude'])
-                lon = float(data['longitude'])
-                user.latitude = lat
-                user.longitude = lon
-
-                # Reverse Geocoding using OpenStreetMap
-                try:
-                    headers = {'User-Agent': 'PaTaniApp/1.0'}
-                    url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&accept-language=id"
-                    response = requests.get(url, headers=headers, timeout=10)
-                    response.raise_for_status() # Raise an exception for bad status codes
-                    geo_data = response.json()
+                headers = {'User-Agent': 'PaTaniApp/1.0'}
+                url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&accept-language=id"
+                response = requests.get(url, headers=headers, timeout=10)
+                response.raise_for_status()
+                geo_data = response.json()
+                
+                print(f"DEBUG: Geocoding response: {geo_data}")
+                
+                if 'address' in geo_data:
+                    # Enhanced region detection with priority order
+                    address = geo_data['address']
                     
-                    if 'address' in geo_data:
-                        # Prioritaskan 'county', fallback ke 'city', lalu 'state_district'
-                        kabupaten = geo_data['address'].get('county')
-                        if not kabupaten:
-                            kabupaten = geo_data['address'].get('city')
-                        if not kabupaten:
-                            kabupaten = geo_data['address'].get('state_district')
-                        
-                        if kabupaten:
-                            user.region = kabupaten.upper() # Simpan dalam format kapital
+                    # Priority order for Indonesian administrative regions
+                    region_candidates = [
+                        address.get('county'),           # Kabupaten/Kota
+                        address.get('city'),            # Kota
+                        address.get('state_district'),  # Kecamatan
+                        address.get('state'),           # Provinsi  
+                        address.get('municipality'),    # Kotamadya
+                        address.get('village'),         # Desa/Kelurahan
+                        address.get('town'),            # Kota kecil
+                    ]
+                    
+                    # Find first non-empty region
+                    for candidate in region_candidates:
+                        if candidate and candidate.strip():
+                            detected_region = candidate.strip().upper()
+                            user.region = detected_region
+                            print(f"DEBUG: Region detected: {detected_region}")
+                            break
+                    
+                    if not detected_region:
+                        # Fallback to country if no specific region found
+                        country = address.get('country', '')
+                        if 'indonesia' in country.lower():
+                            detected_region = 'INDONESIA'
+                            user.region = detected_region
+                            print(f"DEBUG: Fallback to country: {detected_region}")
 
-                except requests.exceptions.RequestException as e:
-                    logging.warning(f"Reverse geocoding failed: {e}")
-                except Exception as e:
-                    logging.error(f"An unexpected error occurred during geocoding: {e}")
-
-                db.session.commit()
-                return jsonify({'status': 'success'})
-
-            except (ValueError, TypeError):
-                db.session.rollback()
-                return jsonify({'status': 'error', 'message': 'Invalid coordinate format'}), 400
+            except requests.exceptions.RequestException as e:
+                print(f"WARNING: Reverse geocoding failed: {e}")
+                detected_region = None
             except Exception as e:
-                db.session.rollback()
-                logging.error(f"Error updating location for user {user.id}: {e}")
-                return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+                print(f"ERROR: Unexpected geocoding error: {e}")
+                detected_region = None
 
-        return jsonify({'status': 'error', 'message': 'User not found'}), 404
+            # Commit changes to database
+            db.session.commit()
+            
+            response_data = {
+                'status': 'success',
+                'message': 'Location updated successfully',
+                'latitude': lat,
+                'longitude': lon
+            }
+            
+            # Include detected region in response if available
+            if detected_region:
+                response_data['region'] = detected_region
+                response_data['message'] = f'Location updated successfully. Region: {detected_region}'
+            
+            print(f"DEBUG: Location update response: {response_data}")
+            return jsonify(response_data)
+            
+        except ValueError as e:
+            print(f"ERROR: Invalid coordinate values: {e}")
+            return jsonify({'status': 'error', 'message': 'Invalid coordinate values'}), 400
+        except Exception as e:
+            print(f"ERROR: Database error during location update: {e}")
+            db.session.rollback()
+            return jsonify({'status': 'error', 'message': 'Failed to update location'}), 500
 
     @app.route('/logout')
     def logout():

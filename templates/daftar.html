@@ -69,5 +69,111 @@
             </form>
         </div>
     </div>
+    
+    <script>
+        // Auto location detection for new user registration
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.querySelector('.register-form');
+            
+            form.addEventListener('submit', function(e) {
+                // Let the form submit normally
+                console.log('Registration form submitted');
+                
+                // After successful registration, user will be redirected to login
+                // Location detection will happen during login flow
+            });
+        });
+        
+        // Optional: Location detection for registration preview
+        function detectLocationForRegistration() {
+            if (!('geolocation' in navigator)) {
+                console.log('Geolocation not supported');
+                return;
+            }
+            
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    console.log(`Registration location preview: ${lat}, ${lon}`);
+                    
+                    // Store in sessionStorage for after login
+                    sessionStorage.setItem('pendingLocation', JSON.stringify({
+                        latitude: lat,
+                        longitude: lon,
+                        timestamp: Date.now()
+                    }));
+                    
+                    showRegistrationMessage('success', 'Lokasi terdeteksi untuk setup otomatis setelah login!', 3000);
+                },
+                (error) => {
+                    console.log('Registration location detection failed:', error.message);
+                    showRegistrationMessage('info', 'Location akan dideteksi setelah login', 2000);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 300000
+                }
+            );
+        }
+        
+        function showRegistrationMessage(type, message, duration = 3000) {
+            // Remove existing messages
+            const existing = document.querySelectorAll('.registration-location-msg');
+            existing.forEach(el => el.remove());
+            
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'registration-location-msg';
+            msgDiv.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                z-index: 10000;
+                max-width: 300px;
+                padding: 10px 14px;
+                border-radius: 6px;
+                font-size: 13px;
+                font-family: 'Inter', sans-serif;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+                animation: slideIn 0.3s ease-out;
+            `;
+            
+            // Set color based on type
+            const colors = {
+                'info': { bg: '#e3f2fd', color: '#1976d2' },
+                'success': { bg: '#e8f5e8', color: '#388e3c' },
+                'warning': { bg: '#fff3cd', color: '#f57c00' }
+            };
+            
+            const style = colors[type] || colors.info;
+            msgDiv.style.backgroundColor = style.bg;
+            msgDiv.style.color = style.color;
+            msgDiv.textContent = message;
+            
+            document.body.appendChild(msgDiv);
+            
+            setTimeout(() => {
+                if (msgDiv.parentNode) {
+                    msgDiv.style.animation = 'slideOut 0.3s ease-in';
+                    setTimeout(() => msgDiv.remove(), 300);
+                }
+            }, duration);
+        }
+        
+        // CSS for animations
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes slideIn {
+                from { transform: translateX(100%); opacity: 0; }
+                to { transform: translateX(0); opacity: 1; }
+            }
+            @keyframes slideOut {
+                from { transform: translateX(0); opacity: 1; }
+                to { transform: translateX(100%); opacity: 0; }
+            }
+        `;
+        document.head.appendChild(style);
+    </script>
 </body>
 </html>
