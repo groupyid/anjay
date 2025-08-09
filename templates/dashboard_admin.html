@@ -745,7 +745,20 @@
             loadUsers();
             loadUserStats();
         } else if (tabName === 'analytics') {
-            loadAnalytics();
+            // Destroy existing charts before loading new ones
+            if (registrationChart) {
+                registrationChart.destroy();
+                registrationChart = null;
+            }
+            if (regionActivityChart) {
+                regionActivityChart.destroy();
+                regionActivityChart = null;
+            }
+            
+            // Load analytics after a small delay
+            setTimeout(() => {
+                loadAnalytics();
+            }, 200);
         } else if (tabName === 'logs') {
             loadSystemLogs();
         } else if (tabName === 'overview') {
@@ -753,12 +766,22 @@
             if (!map) {
                 setTimeout(() => {
                     initMap();
+                    // Load bubbles after map is initialized
+                    setTimeout(() => {
+                        if (map && bubbleLayer) {
+                            renderTopicBubbles(topicEl?.value || '', mapDaysEl?.value || '30');
+                        }
+                    }, 500);
                 }, 100);
             } else {
                 // Refresh map size if it already exists
                 setTimeout(() => {
                     if (map) {
                         map.invalidateSize();
+                        // Refresh bubbles too
+                        setTimeout(() => {
+                            renderTopicBubbles(topicEl?.value || '', mapDaysEl?.value || '30');
+                        }, 200);
                     }
                 }, 100);
             }
@@ -898,26 +921,30 @@
         }, 5000);
     }
 
-    // Analytics Functions
-    async function loadAnalytics() {
-        try {
-            const response = await fetch('/api/admin/analytics');
-            const data = await response.json();
-            
-            // Load registration chart
-            loadRegistrationChart(data.registration_trend);
-            
-            // Load region activity chart
-            loadRegionActivityChart(data.region_activity);
-            
-            // Update performance metrics
-            document.getElementById('avg-response-time').textContent = data.avg_response_time || '-';
-            document.getElementById('total-queries').textContent = data.total_queries || '-';
-            document.getElementById('error-rate').textContent = data.error_rate || '-';
-        } catch (error) {
-            console.error('Error loading analytics:', error);
-        }
-    }
+         // Analytics Functions
+     async function loadAnalytics() {
+         try {
+             const response = await fetch('/api/admin/analytics');
+             const data = await response.json();
+             
+             // Ensure we're on analytics tab before loading charts
+             const analyticsTab = document.getElementById('analytics');
+             if (analyticsTab && analyticsTab.classList.contains('active')) {
+                 // Small delay to ensure DOM is ready
+                 setTimeout(() => {
+                     loadRegistrationChart(data.registration_trend);
+                     loadRegionActivityChart(data.region_activity);
+                 }, 100);
+             }
+             
+             // Update performance metrics
+             document.getElementById('avg-response-time').textContent = data.avg_response_time || '-';
+             document.getElementById('total-queries').textContent = data.total_queries || '-';
+             document.getElementById('error-rate').textContent = data.error_rate || '-';
+         } catch (error) {
+             console.error('Error loading analytics:', error);
+         }
+     }
 
     let registrationChart = null;
     let regionActivityChart = null;
@@ -1288,46 +1315,78 @@
         return 6 + Math.log(count + 1) * 5;
     }
 
-    async function renderTopicBubbles(topic, days) {
-        bubbleLayer.clearLayers();
-        const region = regionEl.value;
-        const provinceId = provinceEl.value;
-        const timeRange = timeRangeEl.value; // Get time range
-        const topicParam = topic || '';
-        const params = new URLSearchParams({ topic: topicParam, days, region, province_id: provinceId, time_range: timeRange }); // Add time_range
-        
-        try {
-            const res = await fetch(`/api/admin/topic-distribution?${params.toString()}`);
-            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-            const json = await res.json();
-            const markers = json.markers || [];
-            
-            if (markers.length === 0) {
-                map.setView(defaultCenter, 4.5);
-                return;
-            }
-            
-            const bounds = [];
-            markers.forEach(m => {
-                const circle = L.circleMarker([m.lat, m.lon], {
-                    radius: radiusFromCount(m.count),
-                    color: 'var(--primary-color)',
-                    fillColor: 'var(--primary-light)',
-                    fillOpacity: 0.7,
-                    weight: 1.5
-                }).bindPopup(`<b>${m.region}</b><br>Topik: ${m.topic || 'Semua'}<br>Jumlah: <b>${m.count}</b>`);
-                circle.addTo(bubbleLayer);
-                bounds.push([m.lat, m.lon]);
-            });
-            
-            if (bounds.length > 0) {
-                map.fitBounds(bounds, { padding: [40, 40], maxZoom: 10 });
-            }
-        } catch (error) {
-            console.error('Error fetching topic distribution:', error);
-            map.setView(defaultCenter, 4.5);
-        }
-    }
+         async function renderTopicBubbles(topic, days) {
+         if (!map || !bubbleLayer) {
+             console.warn('Map not initialized yet, skipping bubble rendering');
+             return;
+         }
+         
+         bubbleLayer.clearLayers();
+         const region = regionEl.value;
+         const provinceId = provinceEl.value;
+         const timeRange = timeRangeEl.value; // Get time range
+         const topicParam = topic || '';
+         const params = new URLSearchParams({ topic: topicParam, days, region, province_id: provinceId, time_range: timeRange }); // Add time_range
+         
+         console.log('Fetching topic distribution with params:', params.toString());
+         
+         try {
+             const res = await fetch(`/api/admin/topic-distribution?${params.toString()}`);
+             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+             const json = await res.json();
+             const markers = json.markers || [];
+             
+             console.log('Received markers:', markers);
+             
+             if (markers.length === 0) {
+                 console.log('No markers found, setting default view');
+                 map.setView(defaultCenter, 4.5);
+                 
+                 // Show a message on the map
+                 const noDataPopup = L.popup()
+                     .setLatLng(defaultCenter)
+                     .setContent('Tidak ada data untuk filter yang dipilih')
+                     .openOn(map);
+                 
+                 setTimeout(() => {
+                     map.closePopup(noDataPopup);
+                 }, 3000);
+                 return;
+             }
+             
+             const bounds = [];
+             markers.forEach(m => {
+                 console.log(`Adding marker for ${m.region} at [${m.lat}, ${m.lon}] with count ${m.count}`);
+                 
+                 const circle = L.circleMarker([m.lat, m.lon], {
+                     radius: radiusFromCount(m.count),
+                     color: '#2e7d32',
+                     fillColor: '#66bb6a',
+                     fillOpacity: 0.7,
+                     weight: 2
+                 }).bindPopup(`
+                     <div style="text-align: center;">
+                         <b>${m.region}</b><br>
+                         <span style="color: #666;">Topik: ${m.topic || 'Semua'}</span><br>
+                         <span style="color: #2e7d32; font-weight: bold;">Jumlah: ${m.count}</span>
+                     </div>
+                 `);
+                 circle.addTo(bubbleLayer);
+                 bounds.push([m.lat, m.lon]);
+             });
+             
+             if (bounds.length > 0) {
+                 map.fitBounds(bounds, { padding: [40, 40], maxZoom: 10 });
+                 console.log('Map fitted to bounds:', bounds);
+             }
+         } catch (error) {
+             console.error('Error fetching topic distribution:', error);
+             map.setView(defaultCenter, 4.5);
+             
+             // Show error message
+             showNotification('error', 'Map Error', 'Gagal memuat data peta', true);
+         }
+     }
 
     // ============ Event Listeners & Initialization ==========
     const topicEl = document.getElementById('filter-topic');
