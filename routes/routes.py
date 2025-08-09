@@ -1670,9 +1670,9 @@ def register_routes(app):
             traceback.print_exc()
             return jsonify({'error': str(e)}), 500
 
-    # Helper function for region coordinates (enhanced version)
+    # Helper function for region coordinates (auto-detection prioritized)
     def get_region_coordinates(region_name):
-        """Get latitude and longitude for a region name"""
+        """Get latitude and longitude for a region name using automatic detection"""
         import requests
         import time
         
@@ -1680,9 +1680,47 @@ def register_routes(app):
         if not hasattr(get_region_coordinates, 'cache'):
             get_region_coordinates.cache = {}
         
-        # Comprehensive coordinate mapping for Indonesian regions
+        # Check cache first (for performance)
+        cache_key = region_name.strip().upper()
+        if cache_key in get_region_coordinates.cache:
+            print(f"DEBUG: Found coordinates for {region_name} in cache: {get_region_coordinates.cache[cache_key]}")
+            return get_region_coordinates.cache[cache_key]
+        
+        # PRIMARY: Auto geocoding API (automatic detection)
+        try:
+            time.sleep(0.1)  # Basic rate limiting
+            headers = {'User-Agent': 'agri-dashboard/1.0 (contact: admin@example.com)'}
+            
+            # Try multiple query formats for better accuracy
+            queries = [
+                f"{region_name}, Indonesia",
+                f"Kabupaten {region_name}, Indonesia",
+                f"Kota {region_name}, Indonesia",
+                f"{region_name.replace('KABUPATEN', '').replace('KOTA', '').strip()}, Indonesia"
+            ]
+            
+            for query in queries:
+                try:
+                    url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(query)}&format=json&limit=1&countrycodes=id&accept-language=id"
+                    response = requests.get(url, headers=headers, timeout=5)
+                    
+                    if response.status_code == 200:
+                        data = response.json()
+                        if data and len(data) > 0:
+                            lat, lon = float(data[0]['lat']), float(data[0]['lon'])
+                            get_region_coordinates.cache[cache_key] = (lat, lon)
+                            print(f"DEBUG: AUTO-DETECTED coordinates for {region_name} via geocoding '{query}': ({lat}, {lon})")
+                            return lat, lon
+                except Exception as e:
+                    print(f"DEBUG: Geocoding attempt failed for query '{query}': {e}")
+                    continue
+                    
+        except Exception as e:
+            print(f"DEBUG: All geocoding attempts failed for {region_name}: {e}")
+        
+        # FALLBACK: Manual coordinate mapping (for performance/reliability)
         coordinate_map = {
-            # Major Cities
+            # Major Cities (high-traffic fallbacks)
             'Jakarta': (-6.2088, 106.8456),
             'Surabaya': (-7.2575, 112.7521),
             'Bandung': (-6.9175, 107.6191),
@@ -1690,244 +1728,57 @@ def register_routes(app):
             'Semarang': (-6.9666, 110.4167),
             'Makassar': (-5.1477, 119.4327),
             'Palembang': (-2.9761, 104.7754),
-            'Tangerang': (-6.1783, 106.6319),
-            'Depok': (-6.4025, 106.7942),
-            'Bekasi': (-6.2349, 107.0001),
             
-            # Aceh Province
+            # Aceh Province (common regions)
             'Aceh': (4.695135, 96.7493993),
             'Banda Aceh': (5.5577, 95.3222),
-            'Langsa': (4.4699, 97.9675),
-            'Lhokseumawe': (5.1801, 97.1507),
-            'Sabang': (5.8936, 95.3197),
-            'Subulussalam': (2.6742, 97.9439),
-            'Bireuen': (5.2037, 96.7019),
             'Aceh Besar': (5.4519, 95.4043),
             'Aceh Timur': (4.7362, 97.6253),
             'Aceh Utara': (5.1728, 97.1384),
             'Aceh Barat': (4.4547, 96.1746),
             'Aceh Selatan': (3.2374, 97.4191),
-            'Aceh Tengah': (4.6271, 96.8595),
-            'Aceh Tenggara': (3.3261, 97.7956),
-            'Aceh Barat Daya': (3.8074, 96.8529),
-            'Aceh Jaya': (4.8138, 95.6522),
-            'Aceh Tamiang': (4.2486, 98.0431),
-            'Bener Meriah': (4.7733, 96.8444),
-            'Gayo Lues': (4.3178, 97.1384),
-            'Nagan Raya': (4.1386, 96.5617),
-            'Pidie': (5.1334, 96.1400),
-            'Pidie Jaya': (5.1334, 96.1862),
-            'Simeulue': (2.6167, 96.0833),
             
-            # Sumatra Utara
+            # Provincial capitals
             'Sumatra Utara': (2.1153547, 99.5450974),
-            'Binjai': (3.6000, 98.4854),
-            'Gunungsitoli': (1.2871, 97.6171),
-            'Padangsidimpuan': (1.3721, 99.2692),
-            'Pematangsiantar': (2.9592, 99.0689),
-            'Sibolga': (1.7427, 98.7792),
-            'Tanjungbalai': (2.9673, 99.7945),
-            'Tebing Tinggi': (3.3284, 99.1632),
-            
-            # Sumatra Barat
             'Sumatra Barat': (-0.7893803, 100.6614298),
-            'Padang': (-0.9471, 100.4172),
-            'Bukittinggi': (-0.3034, 100.3692),
-            'Padangpanjang': (-0.4612, 100.4078),
-            'Pariaman': (-0.6190, 100.1198),
-            'Payakumbuh': (-0.2165, 100.6333),
-            'Sawahlunto': (-0.6817, 100.7799),
-            'Solok': (-0.7917, 100.6539),
-            
-            # Riau
             'Riau': (0.2933469, 101.7068294),
-            'Pekanbaru': (0.5333, 101.4500),
-            'Dumai': (1.6852, 101.4500),
-            
-            # Jambi
             'Jambi': (-1.4851831, 103.6140016),
-            'Sungai Penuh': (-2.0672, 101.3902),
-            
-            # Sumatra Selatan
             'Sumatra Selatan': (-3.3194374, 103.9145314),
-            'Lubuklinggau': (-3.3025, 102.8597),
-            'Pagar Alam': (-4.0075, 103.2597),
-            'Prabumulih': (-3.4294, 104.2394),
-            
-            # Bengkulu
             'Bengkulu': (-3.5778471, 102.3463875),
-            
-            # Lampung
             'Lampung': (-4.5585849, 105.4068079),
-            'Bandar Lampung': (-5.4292, 105.2610),
-            'Metro': (-5.1130, 105.3067),
-            
-            # Kepulauan Bangka Belitung
-            'Bangka Belitung': (-2.7410513, 106.4405872),
-            'Pangkalpinang': (-2.1316, 106.1168),
-            
-            # Kepulauan Riau
-            'Kepulauan Riau': (1.0456, 104.0305),
-            'Batam': (1.1303, 104.0530),
-            'Tanjung Pinang': (0.9171, 104.4586),
-            
-            # DKI Jakarta
-            'DKI Jakarta': (-6.2087634, 106.845599),
-            
-            # Jawa Barat
             'Jawa Barat': (-6.9174639, 107.6191228),
-            'Bogor': (-6.5971, 106.8060),
-            'Sukabumi': (-6.9278, 106.9244),
-            'Cirebon': (-6.7063, 108.5579),
-            'Tasikmalaya': (-7.3274, 108.2207),
-            'Cimahi': (-6.8721, 107.5420),
-            'Banjar': (-7.3720, 108.5329),
-            
-            # Jawa Tengah
             'Jawa Tengah': (-7.150975, 110.1402594),
-            'Magelang': (-7.4800, 110.2181),
-            'Surakarta': (-7.5755, 110.8243),
-            'Salatiga': (-7.3311, 110.4924),
-            'Pekalongan': (-6.8886, 109.6753),
-            'Tegal': (-6.8694, 109.1402),
-            
-            # DI Yogyakarta
-            'Yogyakarta': (-7.8753849, 110.4262088),
-            
-            # Jawa Timur
             'Jawa Timur': (-7.5360639, 112.2384017),
-            'Malang': (-7.9666, 112.6326),
-            'Batu': (-7.8700, 112.5286),
-            'Blitar': (-8.0983, 112.1681),
-            'Kediri': (-7.8486, 112.0178),
-            'Madiun': (-7.6298, 111.5239),
-            'Mojokerto': (-7.4664, 112.4342),
-            'Pasuruan': (-7.6454, 112.9075),
-            'Probolinggo': (-7.7543, 113.2159),
-            
-            # Banten
             'Banten': (-6.4058172, 106.0640179),
-            'Serang': (-6.1200, 106.1500),
-            'Cilegon': (-6.0025, 106.0190),
-            'Tangerang Selatan': (-6.2614, 106.7447),
-            
-            # Bali
             'Bali': (-8.4095178, 115.188916),
-            'Denpasar': (-8.6500, 115.2167),
-            
-            # Nusa Tenggara Barat
             'Nusa Tenggara Barat': (-8.6529334, 117.3616476),
-            'Mataram': (-8.5833, 116.1167),
-            'Bima': (-8.4603, 118.7168),
-            
-            # Nusa Tenggara Timur
             'Nusa Tenggara Timur': (-8.6573819, 121.0793705),
-            'Kupang': (-10.1718, 123.6075),
-            
-            # Kalimantan Barat
             'Kalimantan Barat': (-0.2787808, 111.4752851),
-            'Pontianak': (-0.0263, 109.3425),
-            'Singkawang': (0.9063, 108.9896),
-            
-            # Kalimantan Tengah
             'Kalimantan Tengah': (-1.6814878, 113.3823545),
-            'Palangka Raya': (-2.2136, 113.9209),
-            
-            # Kalimantan Selatan
             'Kalimantan Selatan': (-3.0926415, 115.2837585),
-            'Banjarmasin': (-3.3194, 114.5941),
-            'Banjarbaru': (-3.4441, 114.8070),
-            
-            # Kalimantan Timur
             'Kalimantan Timur': (1.5726923, 116.4194496),
-            'Samarinda': (-0.5017, 117.1536),
-            'Balikpapan': (-1.2379, 116.8289),
-            'Bontang': (0.1348, 117.4692),
-            
-            # Kalimantan Utara
             'Kalimantan Utara': (2.72074, 117.1683),
-            'Tarakan': (3.3000, 117.6333),
-            
-            # Sulawesi Utara
             'Sulawesi Utara': (0.6246932, 123.9750018),
-            'Manado': (1.4748, 124.8421),
-            'Bitung': (1.4537, 125.1918),
-            'Tomohon': (1.3357, 124.8382),
-            'Kotamobagu': (0.7191, 124.3169),
-            
-            # Sulawesi Tengah
             'Sulawesi Tengah': (-1.4300254, 121.4456179),
-            'Palu': (-0.8917, 119.8707),
-            
-            # Sulawesi Selatan
             'Sulawesi Selatan': (-3.6687994, 119.9740534),
-            'Parepare': (-4.0133, 119.6278),
-            'Palopo': (-2.9932, 120.1985),
-            
-            # Sulawesi Tenggara
             'Sulawesi Tenggara': (-4.14491, 122.174605),
-            'Kendari': (-3.9778, 122.515),
-            'Bau-Bau': (-5.4871, 122.6009),
-            
-            # Gorontalo
             'Gorontalo': (0.6999372, 122.4467238),
-            
-            # Sulawesi Barat
             'Sulawesi Barat': (-2.8441371, 119.2320784),
-            'Mamuju': (-2.6737, 118.8853),
-            
-            # Maluku
             'Maluku': (-3.2384616, 130.1452734),
-            'Ambon': (-3.6954, 128.1814),
-            'Tual': (-5.6267, 132.7317),
-            
-            # Maluku Utara
             'Maluku Utara': (1.5709993, 127.8087693),
-            'Ternate': (0.7880, 127.3675),
-            'Tidore Kepulauan': (0.6833, 127.4167),
-            
-            # Papua Barat
             'Papua Barat': (-1.3361154, 133.1747162),
-            'Manokwari': (-0.8618, 134.0640),
-            'Sorong': (-0.8833, 131.2500),
-            
-            # Papua
             'Papua': (-4.269928, 138.0803529),
-            'Jayapura': (-2.5317, 140.7166),
         }
         
-        # Check simple mapping first with fuzzy matching
+        # Check manual mapping with fuzzy matching (fallback)
         region_lower = region_name.lower().strip()
         for key, coords in coordinate_map.items():
             if key.lower() in region_lower or region_lower in key.lower():
-                print(f"DEBUG: Found coordinates for {region_name} via mapping: {coords}")
+                get_region_coordinates.cache[cache_key] = coords
+                print(f"DEBUG: Found coordinates for {region_name} via manual mapping: {coords}")
                 return coords
         
-        # Check cache
-        cache_key = region_name.strip().upper()
-        if cache_key in get_region_coordinates.cache:
-            print(f"DEBUG: Found coordinates for {region_name} in cache: {get_region_coordinates.cache[cache_key]}")
-            return get_region_coordinates.cache[cache_key]
-        
-        # Try geocoding API with rate limiting (as fallback)
-        try:
-            time.sleep(0.1)  # Basic rate limiting
-            headers = {'User-Agent': 'agri-dashboard/1.0 (contact: admin@example.com)'}
-            query = f"{region_name}, Indonesia"
-            url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(query)}&format=json&limit=1&countrycodes=id&accept-language=id"
-            
-            response = requests.get(url, headers=headers, timeout=5)
-            if response.status_code == 200:
-                data = response.json()
-                if data:
-                    lat, lon = float(data[0]['lat']), float(data[0]['lon'])
-                    get_region_coordinates.cache[cache_key] = (lat, lon)
-                    print(f"DEBUG: Found coordinates for {region_name} via geocoding: ({lat}, {lon})")
-                    return lat, lon
-        except Exception as e:
-            print(f"Geocoding error for {region_name}: {e}")
-        
-        # Default coordinates for Indonesia center
+        # Last resort: Default coordinates for Indonesia center
         default_coords = (-2.5, 117)
         get_region_coordinates.cache[cache_key] = default_coords
         print(f"DEBUG: Using default coordinates for {region_name}: {default_coords}")
