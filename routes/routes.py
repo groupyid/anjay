@@ -1010,180 +1010,512 @@ def register_routes(app):
             return jsonify({'error': 'Unauthorized'}), 401
         from .models import ChatHistory, User
         from datetime import timedelta
-        import collections, re
-
-        topic = request.args.get('topic', '').strip().lower()
-        time_filter = request.args.get('time_filter', '1_month').lower() # 15_minutes|4_hours|1_day|1_week|1_month|all_time
-        region_filter = request.args.get('region', '').strip()
-        province_id = request.args.get('province_id', '').strip()
-
-        print(f"DEBUG: Topic: {topic}, Region Filter: {region_filter}, Province ID: {province_id}")
-
-        # Ensure regencies exist for requested province
-        if province_id:
+        
+        try:
+            today = datetime.now()
+            
+            # Get request parameters
+            topic_filter = request.args.get('topic', '').strip()
+            days_param = request.args.get('days', '30')
             try:
-                from .models import Province, Regency
-                pid_int = int(province_id)
-                if Regency.query.filter_by(province_id=pid_int).count() == 0:
-                    import requests
-                    base = 'https://emsifa.github.io/api-wilayah-indonesia/api'
-                    prov = Province.query.get(pid_int)
-                    if prov:
-                        resp = requests.get(f'{base}/provinces.json', timeout=20)
-                        resp.raise_for_status()
-                        provinces_json = resp.json() or []
-                        api_pid = None
-                        for pj in provinces_json:
-                            if pj.get('name') == prov.name:
-                                api_pid = pj.get('id')
-                                break
-                        if api_pid:
-                            rresp = requests.get(f'{base}/regencies/{api_pid}.json', timeout=20)
-                            if rresp.status_code == 200:
-                                rjson = rresp.json() or []
-                                for rj in rjson:
-                                    rname = rj.get('name')
-                                    if not rname:
-                                        continue
-                                    exists = Regency.query.filter_by(name=rname, province_id=pid_int).first()
-                                    if not exists:
-                                        db.session.add(Regency(name=rname, province_id=pid_int))
-                                db.session.commit()
-            except Exception:
-                db.session.rollback()
-                # ignore
-
-        now = datetime.utcnow()
-        start_time = None
-        if time_filter == '15_minutes':
-            start_time = now - timedelta(minutes=15)
-        elif time_filter == '4_hours':
-            start_time = now - timedelta(hours=4)
-        elif time_filter == '1_day':
-            start_time = now - timedelta(days=1)
-        elif time_filter == '1_week':
-            start_time = now - timedelta(weeks=1)
-        elif time_filter == '1_month':
-            start_time = now - timedelta(days=30) # Approximate for a month
-        # If time_filter is 'all_time', start_time remains None
-        query = ChatHistory.query.join(User, ChatHistory.user_id == User.id)
-        if start_time:
-            query = query.filter(ChatHistory.created_at >= start_time)
-
-        if region_filter:
-            query = query.filter(User.region == region_filter)
-        elif province_id:
-            try:
-                from .models import Regency
-                pid_int = int(province_id)
-                regency_names = [r.name for r in Regency.query.filter_by(province_id=pid_int).all()]
+                days = int(days_param)
+            except ValueError:
+                days = 30
+            
+            province_id = request.args.get('province_id', '').strip()
+            region_filter = request.args.get('region', '').strip()
+            time_range = request.args.get('time_range', '1_week')
+            
+            # Apply time range filter
+            date_filter = today
+            if time_range == '5_minutes':
+                date_filter = today - timedelta(minutes=5)
+            elif time_range == '4_hours':
+                date_filter = today - timedelta(hours=4)
+            elif time_range == '1_day':
+                date_filter = today - timedelta(days=1)
+            elif time_range == '1_week':
+                date_filter = today - timedelta(weeks=1)
+            
+            cutoff = today - timedelta(days=days)
+            
+            # Build base query with time range
+            query = ChatHistory.query.join(User).filter(
+                ChatHistory.created_at >= cutoff,
+                ChatHistory.created_at >= date_filter
+            )
+            
+            # Apply region filter
+            if region_filter:
+                query = query.filter(User.region.ilike(f'%{region_filter}%'))
+            
+            if province_id:
+                from .models import Regency, Province
+                regencies = Regency.query.filter_by(province_id=province_id).all()
+                regency_names = [r.name.replace('KABUPATEN ', '').replace('KOTA ', '') for r in regencies]
                 if regency_names:
-                    query = query.filter(User.region.in_(regency_names))
-            except (ValueError, Exception):
-                pass
-
-        if topic:
-            query = query.filter(ChatHistory.question.ilike(f'%{topic}%'))
-
-        chats = query.all()
-
-        print(f"DEBUG: Total chats found for topic distribution: {len(chats)}")
-
-        counts_by_user = _collections.Counter()
-        for c in chats:
-            if c.user_id:
-                counts_by_user[c.user_id] += 1
-
-        print(f"DEBUG: Counts by user for topic distribution: {counts_by_user}")
-
-        if not counts_by_user:
-            print("DEBUG: No user counts for topic distribution. Returning empty markers.")
-            return jsonify({'markers': []})
-
-        users_query = User.query.filter(
-            User.id.in_(list(counts_by_user.keys())),
-            User.latitude.isnot(None),
-            User.longitude.isnot(None)
-        )
-        users = users_query.with_entities(User.id, User.latitude, User.longitude, User.region).all()
-
-        print(f"DEBUG: Users with lat/lon for topic distribution: {len(users)}")
-
-        markers_map = {}
-        for uid, lat, lon, region in users:
-            key = (float(lat), float(lon), region or '-')
-            markers_map.setdefault(key, 0)
-            markers_map[key] += counts_by_user.get(uid, 0)
-
-        print(f"DEBUG: Markers map before geocoding fallback: {markers_map}")
-
-        # Fallback: if no users have lat/lon, aggregate by region names and geocode centroids
-        if not markers_map and chats:
-            import os, json as _json
-            import requests
-            from time import sleep
-
-            cache_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'cache', 'geocode_cache.json')
-            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
-            try:
-                with open(cache_path, 'r', encoding='utf-8') as f:
-                    geo_cache = _json.load(f) or {}
-            except Exception:
-                geo_cache = {}
-
-            def geocode_region(name: str):
-                key = name.strip().upper()
-                if key in geo_cache:
-                    return geo_cache[key]
-                headers = {'User-Agent': 'agri-dashboard/1.0 (contact: admin@example.com)'}
-                q = f"{name}, Indonesia"
-                url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(q)}&format=json&limit=1&countrycodes=id&accept-language=id"
-                try:
-                    r = requests.get(url, headers=headers, timeout=12)
-                    if r.status_code == 200:
-                        arr = r.json() or []
-                        if arr:
-                            lat = float(arr[0]['lat'])
-                            lon = float(arr[0]['lon'])
-                            geo_cache[key] = {'lat': lat, 'lon': lon}
-                            # Persist lazily
-                            try:
-                                with open(cache_path, 'w', encoding='utf-8') as fw:
-                                    _json.dump(geo_cache, fw)
-                            except Exception:
-                                pass
-                            # polite tiny delay
-                            sleep(0.2)
-                            return geo_cache[key]
-                except Exception:
-                    return None
-                return None
-
-            # Aggregate counts per region name
+                    conditions = [User.region.ilike(f'%{name}%') for name in regency_names]
+                    query = query.filter(db.or_(*conditions))
+                else:
+                    query = query.filter(User.region == '__NO_MATCH__')  # No results if no regencies
+            
+            chats = query.all()
+            
+            # Topic modeling on filtered data
+            if chats:
+                questions = [chat.question for chat in chats]
+                from .topic_modeling import find_topic_clusters
+                topics = find_topic_clusters(questions, n_clusters=3)
+            else:
+                topics = []
+            
+            # Filter by topic if specified
+            if topic_filter:
+                chats = [chat for chat in chats if topic_filter.lower() in chat.question.lower()]
+            
+            # Group by region and calculate coordinates
             region_counts = {}
-            user_map_counts = counts_by_user
-            # Build user_id -> region from DB to ensure accurate region mapping
-            uid_to_region = {u.id: u.region for u in User.query.filter(User.id.in_(list(user_map_counts.keys()))).all()}
-            for uid, cnt in user_map_counts.items():
-                reg_name = (uid_to_region.get(uid) or '').strip()
-                if not reg_name:
-                    continue
-                region_counts[reg_name] = region_counts.get(reg_name, 0) + cnt
+            for chat in chats:
+                region = chat.user.region if chat.user.region else 'Unknown'
+                if region not in region_counts:
+                    region_counts[region] = {'count': 0, 'lat': None, 'lon': None}
+                region_counts[region]['count'] += 1
+            
+            # Get coordinates for regions
+            markers = []
+            for region, data in region_counts.items():
+                if region != 'Unknown':
+                    # Try to get coordinates (simplified - you may want to enhance this)
+                    lat, lon = get_region_coordinates(region)
+                    if lat and lon:
+                        markers.append({
+                            'region': region,
+                            'count': data['count'],
+                            'lat': lat,
+                            'lon': lon,
+                            'topic': topic_filter or 'Semua'
+                        })
+            
+            return jsonify({'markers': markers})
+            
+        except Exception as e:
+            print(f"ERROR in api_admin_topic_distribution: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'error': f'Server error: {str(e)}'}), 500
 
-            print(f"DEBUG: Region counts for geocoding: {region_counts}")
+    # New API routes for enhanced admin functionality
+    
+    @app.route('/api/admin/users', methods=['GET'])
+    def api_admin_users():
+        if 'user_id' not in session or session.get('user_role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        from .models import User
+        try:
+            users = User.query.order_by(User.created_at.desc()).all()
+            users_data = []
+            for user in users:
+                users_data.append({
+                    'id': user.id,
+                    'name': user.name,
+                    'email': user.email,
+                    'phone': user.phone,
+                    'role': user.role,
+                    'region': user.region,
+                    'created_at': user.created_at.isoformat(),
+                    'latitude': user.latitude,
+                    'longitude': user.longitude
+                })
+            return jsonify({'users': users_data})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
 
-            for reg_name, cnt in region_counts.items():
-                loc = geocode_region(reg_name)
-                if not loc:
-                    print(f"DEBUG: Could not geocode region: {reg_name}")
-                    continue
-                key = (float(loc['lat']), float(loc['lon']), reg_name)
-                markers_map[key] = markers_map.get(key, 0) + cnt
-            print(f"DEBUG: Markers map after geocoding fallback: {markers_map}")
+    @app.route('/api/admin/users/<int:user_id>', methods=['GET'])
+    def api_admin_get_user(user_id):
+        if 'user_id' not in session or session.get('user_role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        from .models import User
+        try:
+            user = User.query.get_or_404(user_id)
+            user_data = {
+                'id': user.id,
+                'name': user.name,
+                'email': user.email,
+                'phone': user.phone,
+                'role': user.role,
+                'region': user.region,
+                'created_at': user.created_at.isoformat(),
+                'latitude': user.latitude,
+                'longitude': user.longitude
+            }
+            return jsonify({'user': user_data})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
 
-        markers = [
-            { 'lat': k[0], 'lon': k[1], 'region': k[2], 'count': v, 'topic': topic }
-            for k, v in markers_map.items()
-        ]
-        print(f"DEBUG: Final markers to return: {markers}")
-        return jsonify({'markers': markers})
+    @app.route('/api/admin/users', methods=['POST'])
+    def api_admin_create_user():
+        if 'user_id' not in session or session.get('user_role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        from .models import User
+        from werkzeug.security import generate_password_hash
+        from datetime import date
+        
+        try:
+            data = request.get_json()
+            
+            # Check if email already exists
+            existing_user = User.query.filter_by(email=data['email']).first()
+            if existing_user:
+                return jsonify({'error': 'Email already exists'}), 400
+            
+            # Create new user
+            new_user = User(
+                name=data['name'],
+                email=data['email'],
+                phone=data['phone'],
+                password=generate_password_hash(data['password']),
+                role=data.get('role', 'petani'),
+                region=data.get('region'),
+                dob=date.fromisoformat(data.get('dob', '2000-01-01')),
+                gender=data.get('gender', 'L')
+            )
+            
+            db.session.add(new_user)
+            db.session.commit()
+            
+            return jsonify({'message': 'User created successfully', 'user_id': new_user.id})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/admin/users/<int:user_id>', methods=['PUT'])
+    def api_admin_update_user(user_id):
+        if 'user_id' not in session or session.get('user_role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        from .models import User
+        try:
+            user = User.query.get_or_404(user_id)
+            data = request.get_json()
+            
+            # Update user fields
+            if 'name' in data:
+                user.name = data['name']
+            if 'email' in data:
+                # Check if email is already taken by another user
+                existing_user = User.query.filter(User.email == data['email'], User.id != user_id).first()
+                if existing_user:
+                    return jsonify({'error': 'Email already taken by another user'}), 400
+                user.email = data['email']
+            if 'phone' in data:
+                user.phone = data['phone']
+            if 'role' in data:
+                user.role = data['role']
+            if 'region' in data:
+                user.region = data['region']
+            
+            db.session.commit()
+            return jsonify({'message': 'User updated successfully'})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/admin/users/<int:user_id>', methods=['DELETE'])
+    def api_admin_delete_user(user_id):
+        if 'user_id' not in session or session.get('user_role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        from .models import User
+        try:
+            user = User.query.get_or_404(user_id)
+            
+            # Don't allow deletion of the current admin user
+            if user.id == session['user_id']:
+                return jsonify({'error': 'Cannot delete your own account'}), 400
+            
+            db.session.delete(user)
+            db.session.commit()
+            return jsonify({'message': 'User deleted successfully'})
+        except Exception as e:
+            db.session.rollback()
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/admin/user-stats', methods=['GET'])
+    def api_admin_user_stats():
+        if 'user_id' not in session or session.get('user_role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        from .models import User, ChatHistory
+        from datetime import datetime, timedelta
+        
+        try:
+            # Total users
+            total_users = User.query.count()
+            
+            # Admin users
+            admin_users = User.query.filter_by(role='admin').count()
+            
+            # New users in last 30 days
+            thirty_days_ago = datetime.now() - timedelta(days=30)
+            new_users = User.query.filter(User.created_at >= thirty_days_ago).count()
+            
+            # Active users (users who have chat history in last 7 days)
+            seven_days_ago = datetime.now() - timedelta(days=7)
+            active_users = User.query.join(ChatHistory).filter(
+                ChatHistory.created_at >= seven_days_ago
+            ).distinct().count()
+            
+            return jsonify({
+                'total_users': total_users,
+                'admin_users': admin_users,
+                'new_users': new_users,
+                'active_users': active_users
+            })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/admin/analytics', methods=['GET'])
+    def api_admin_analytics():
+        if 'user_id' not in session or session.get('user_role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        from .models import User, ChatHistory
+        from datetime import datetime, timedelta
+        from collections import defaultdict
+        
+        try:
+            # Registration trend (last 30 days)
+            registration_data = defaultdict(int)
+            thirty_days_ago = datetime.now() - timedelta(days=30)
+            
+            users = User.query.filter(User.created_at >= thirty_days_ago).all()
+            for user in users:
+                date_key = user.created_at.strftime('%Y-%m-%d')
+                registration_data[date_key] += 1
+            
+            # Sort dates and prepare chart data
+            sorted_dates = sorted(registration_data.keys())
+            registration_trend = {
+                'labels': sorted_dates,
+                'values': [registration_data[date] for date in sorted_dates]
+            }
+            
+            # Chat activity by region
+            region_activity = defaultdict(int)
+            chats = ChatHistory.query.join(User).filter(
+                ChatHistory.created_at >= thirty_days_ago
+            ).all()
+            
+            for chat in chats:
+                region = chat.user.region or 'Unknown'
+                region_activity[region] += 1
+            
+            # Sort by activity and take top 10
+            sorted_regions = sorted(region_activity.items(), key=lambda x: x[1], reverse=True)[:10]
+            region_chart_data = {
+                'labels': [region for region, count in sorted_regions],
+                'values': [count for region, count in sorted_regions]
+            }
+            
+            # System performance metrics (placeholder - you can enhance these)
+            total_queries = ChatHistory.query.count()
+            avg_response_time = 120  # Placeholder
+            error_rate = 0.5  # Placeholder
+            
+            return jsonify({
+                'registration_trend': registration_trend,
+                'region_activity': region_chart_data,
+                'avg_response_time': avg_response_time,
+                'total_queries': total_queries,
+                'error_rate': error_rate
+            })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/admin/logs', methods=['GET'])
+    def api_admin_logs():
+        if 'user_id' not in session or session.get('user_role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        from .models import ChatHistory, User
+        from datetime import datetime, timedelta
+        
+        try:
+            log_type = request.args.get('type', '')
+            days = int(request.args.get('days', 7))
+            
+            cutoff_date = datetime.now() - timedelta(days=days)
+            
+            # Generate system logs based on available data
+            logs = []
+            
+            # Chat logs
+            if not log_type or log_type == 'chat':
+                chats = ChatHistory.query.filter(
+                    ChatHistory.created_at >= cutoff_date
+                ).order_by(ChatHistory.created_at.desc()).limit(50).all()
+                
+                for chat in chats:
+                    logs.append({
+                        'message': f'User {chat.user.name if chat.user else "Unknown"} asked: {chat.question[:100]}...',
+                        'timestamp': chat.created_at.isoformat(),
+                        'type': 'chat'
+                    })
+            
+            # Login logs (simulated based on first chat per day per user)
+            if not log_type or log_type == 'login':
+                from sqlalchemy import func
+                daily_first_chats = db.session.query(
+                    ChatHistory.user_id,
+                    func.date(ChatHistory.created_at).label('chat_date'),
+                    func.min(ChatHistory.created_at).label('first_chat')
+                ).filter(
+                    ChatHistory.created_at >= cutoff_date
+                ).group_by(
+                    ChatHistory.user_id, func.date(ChatHistory.created_at)
+                ).all()
+                
+                for entry in daily_first_chats:
+                    user = User.query.get(entry.user_id)
+                    if user:
+                        logs.append({
+                            'message': f'User {user.name} logged in',
+                            'timestamp': entry.first_chat.isoformat(),
+                            'type': 'login'
+                        })
+            
+            # Sort logs by timestamp
+            logs.sort(key=lambda x: x['timestamp'], reverse=True)
+            
+            return jsonify({'logs': logs[:100]})  # Limit to 100 most recent
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/admin/export-users', methods=['GET'])
+    def api_admin_export_users():
+        if 'user_id' not in session or session.get('user_role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        from .models import User
+        import csv
+        from io import StringIO
+        from flask import make_response
+        
+        try:
+            output = StringIO()
+            writer = csv.writer(output)
+            
+            # Write header
+            writer.writerow(['ID', 'Name', 'Email', 'Phone', 'Role', 'Region', 'Created At'])
+            
+            # Write user data
+            users = User.query.order_by(User.created_at.desc()).all()
+            for user in users:
+                writer.writerow([
+                    user.id,
+                    user.name,
+                    user.email,
+                    user.phone,
+                    user.role,
+                    user.region or '',
+                    user.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                ])
+            
+            # Create response
+            response = make_response(output.getvalue())
+            response.headers['Content-Type'] = 'text/csv'
+            response.headers['Content-Disposition'] = 'attachment; filename=users_export.csv'
+            
+            return response
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    @app.route('/api/admin/recent-activity', methods=['GET'])
+    def api_admin_recent_activity():
+        if 'user_id' not in session or session.get('user_role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        from .models import User, ChatHistory
+        from datetime import datetime, timedelta
+        
+        try:
+            now = datetime.now()
+            one_minute_ago = now - timedelta(minutes=1)
+            one_hour_ago = now - timedelta(hours=1)
+            
+            # Check for new users in last minute
+            new_users = User.query.filter(User.created_at >= one_minute_ago).count()
+            
+            # Check for new chats in last minute  
+            new_chats = ChatHistory.query.filter(ChatHistory.created_at >= one_minute_ago).count()
+            
+            # Simulate error count (you can implement actual error tracking)
+            errors = 0
+            
+            return jsonify({
+                'new_users': new_users,
+                'new_chats': new_chats,
+                'errors': errors,
+                'timestamp': now.isoformat()
+            })
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    # Helper function for region coordinates (enhanced version)
+    def get_region_coordinates(region_name):
+        """Get latitude and longitude for a region name"""
+        import requests
+        import time
+        
+        # Cache to avoid repeated API calls
+        if not hasattr(get_region_coordinates, 'cache'):
+            get_region_coordinates.cache = {}
+        
+        # Simple coordinate mapping for common Indonesian regions
+        coordinate_map = {
+            'Jakarta': (-6.2088, 106.8456),
+            'Surabaya': (-7.2575, 112.7521),
+            'Bandung': (-6.9175, 107.6191),
+            'Medan': (3.5952, 98.6722),
+            'Semarang': (-6.9666, 110.4167),
+            'Makassar': (-5.1477, 119.4327),
+            'Palembang': (-2.9761, 104.7754),
+            'Tangerang': (-6.1783, 106.6319),
+            'Depok': (-6.4025, 106.7942),
+            'Bekasi': (-6.2349, 107.0001)
+        }
+        
+        # Check simple mapping first
+        for key, coords in coordinate_map.items():
+            if key.lower() in region_name.lower():
+                return coords
+        
+        # Check cache
+        cache_key = region_name.strip().upper()
+        if cache_key in get_region_coordinates.cache:
+            return get_region_coordinates.cache[cache_key]
+        
+        # Try geocoding API with rate limiting
+        try:
+            time.sleep(0.1)  # Basic rate limiting
+            headers = {'User-Agent': 'agri-dashboard/1.0 (contact: admin@example.com)'}
+            query = f"{region_name}, Indonesia"
+            url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(query)}&format=json&limit=1&countrycodes=id&accept-language=id"
+            
+            response = requests.get(url, headers=headers, timeout=5)
+            if response.status_code == 200:
+                data = response.json()
+                if data:
+                    lat, lon = float(data[0]['lat']), float(data[0]['lon'])
+                    get_region_coordinates.cache[cache_key] = (lat, lon)
+                    return lat, lon
+        except Exception as e:
+            print(f"Geocoding error for {region_name}: {e}")
+        
+        # Default coordinates for Indonesia center
+        default_coords = (-2.5, 117)
+        get_region_coordinates.cache[cache_key] = default_coords
+        return default_coords

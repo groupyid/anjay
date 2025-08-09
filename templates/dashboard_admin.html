@@ -9,11 +9,346 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <link rel="stylesheet" href="{{ url_for('static', filename='dashboard.css') }}">
+    <style>
+        /* Enhanced styles for new features */
+        .nav-tabs {
+            display: flex;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 4px;
+            margin-bottom: 20px;
+            border: 1px solid #e9ecef;
+        }
+        .nav-tab {
+            flex: 1;
+            padding: 12px 20px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            color: #6c757d;
+        }
+        .nav-tab.active {
+            background: var(--primary-color);
+            color: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .user-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 16px;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .user-table th,
+        .user-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .user-table th {
+            background: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+        }
+        .user-table tr:hover {
+            background: #f8f9fa;
+        }
+        .action-btn {
+            padding: 6px 12px;
+            margin: 0 2px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s ease;
+        }
+        .btn-edit {
+            background: #28a745;
+            color: white;
+        }
+        .btn-delete {
+            background: #dc3545;
+            color: white;
+        }
+        .btn-view {
+            background: #007bff;
+            color: white;
+        }
+        .action-btn:hover {
+            opacity: 0.8;
+            transform: translateY(-1px);
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, var(--primary-color), var(--primary-light));
+            color: white;
+            padding: 24px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+        .stat-label {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        .search-box {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 16px;
+            font-size: 14px;
+        }
+        .export-btn {
+            background: var(--primary-color);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-bottom: 16px;
+            transition: all 0.3s ease;
+        }
+        .export-btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+        }
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .close:hover {
+            color: #000;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 500;
+            color: #333;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .analytics-card {
+            background: white;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .chart-small {
+            height: 200px;
+            margin-top: 16px;
+        }
+        .alert {
+            padding: 16px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid;
+        }
+        .alert-success {
+            background: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+        .alert-danger {
+            background: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+        .activity-log {
+            max-height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 16px;
+        }
+        .log-entry {
+            padding: 8px 0;
+            border-bottom: 1px solid #f1f3f4;
+            font-size: 14px;
+        }
+        .log-time {
+            color: #6c757d;
+            font-size: 12px;
+        }
+        
+        /* Notification System */
+        .notification-center {
+            position: fixed;
+            top: 80px;
+            right: 24px;
+            z-index: 1001;
+            max-width: 350px;
+        }
+        
+        .notification {
+            background: white;
+            border-radius: 12px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+            border-left: 4px solid var(--primary-color);
+            animation: slideInRight 0.4s ease-out;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .notification.success {
+            border-left-color: #28a745;
+        }
+        
+        .notification.warning {
+            border-left-color: #ffc107;
+        }
+        
+        .notification.error {
+            border-left-color: #dc3545;
+        }
+        
+        .notification-header {
+            font-weight: 600;
+            margin-bottom: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .notification-close {
+            background: none;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: #999;
+            padding: 0;
+            width: 20px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .notification-close:hover {
+            color: #666;
+        }
+        
+        .notification-body {
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.4;
+        }
+        
+        .notification-time {
+            font-size: 12px;
+            color: #999;
+            margin-top: 8px;
+        }
+        
+        @keyframes slideInRight {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        .notification-bell {
+            position: relative;
+            cursor: pointer;
+            margin-left: 16px;
+            padding: 8px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            transition: var(--transition);
+        }
+        
+        .notification-bell:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: scale(1.1);
+        }
+        
+        .notification-badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background: #dc3545;
+            color: white;
+            border-radius: 50%;
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
     <div class="logout-container">
+        <div class="notification-bell" onclick="toggleNotifications()" title="Notifications">
+            🔔
+            <span class="notification-badge" id="notificationBadge" style="display: none;">0</span>
+        </div>
         <a href="{{ url_for('logout') }}" class="logout-btn">Logout</a>
     </div>
+
+    <!-- Notification Center -->
+    <div class="notification-center" id="notificationCenter"></div>
 
     <div class="dashboard-container">
         <header class="dashboard-header">
@@ -21,166 +356,705 @@
             <p>Analisis Interaksi Petani & Early Warning System</p>
         </header>
 
-        {% if ews and ews|length > 0 %}
-        <div class="card ews-card">
-            <h2>⚠️ Early Warning System</h2>
-            <ul>
-                {% for w in ews %}
-                <li>
-                    <b>Topik:</b> <span class="topic">{{ w.topik }}</span> &mdash; <b>Wilayah:</b> <span class="region">{{ w.region }}</span><br>
-                    <small>Dibahas oleh <b>{{ w.user_count }}</b> user, <b>{{ w.chat_count }}</b> chat minggu ini.</small>
-                </li>
-                {% endfor %}
-            </ul>
-            <div class="footer">Segera lakukan advokasi atau tindak lanjut jika diperlukan.</div>
+        <!-- Navigation Tabs -->
+        <div class="nav-tabs">
+            <button class="nav-tab active" onclick="showTab('overview')">Overview</button>
+            <button class="nav-tab" onclick="showTab('users')">Manajemen User</button>
+            <button class="nav-tab" onclick="showTab('analytics')">Analytics</button>
+            <button class="nav-tab" onclick="showTab('logs')">System Logs</button>
         </div>
-        {% endif %}
 
-        <main class="dashboard-grid">
-            <section class="card">
-                <h2 class="card-header">Analisis Tren Topik</h2>
-                
-                <div class="filter-bar">
-                    <div class="filter-group">
-                        <label for="filter-province">Provinsi</label>
-                        <select id="filter-province">
-                            <option value="">Semua Provinsi</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label for="admin-region">Kab/Kota</label>
-                        <select id="admin-region">
-                            <option value="">Semua Kab/Kota</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label for="trend-period">Periode</label>
-                        <select id="trend-period">
-                            <option value="day">Harian</option>
-                            <option value="week" selected>Mingguan</option>
-                            <option value="month">Bulanan</option>
-                        </select>
-                    </div>
-                     <div class="filter-group">
-                        <label for="trend-days">Rentang</label>
-                        <select id="trend-days">
-                            <option value="30">30 hari</option>
-                            <option value="90" selected>90 hari</option>
-                            <option value="180">180 hari</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label for="time-range">Waktu</label>
-                        <select id="time-range">
-                            <option value="5_minutes">5 Menit</option>
-                            <option value="4_hours">4 Jam</option>
-                            <option value="1_day">1 Hari</option>
-                            <option value="1_week" selected>1 Minggu</option>
-                        </select>
-                    </div>
-                </div>
+        <!-- Overview Tab (Original Content) -->
+        <div id="overview" class="tab-content active">
+            {% if ews and ews|length > 0 %}
+            <div class="card ews-card">
+                <h2>⚠️ Early Warning System</h2>
+                <ul>
+                    {% for w in ews %}
+                    <li>
+                        <b>Topik:</b> <span class="topic">{{ w.topik }}</span> &mdash; <b>Wilayah:</b> <span class="region">{{ w.region }}</span><br>
+                        <small>Dibahas oleh <b>{{ w.user_count }}</b> user, <b>{{ w.chat_count }}</b> chat minggu ini.</small>
+                    </li>
+                    {% endfor %}
+                </ul>
+                <div class="footer">Segera lakukan advokasi atau tindak lanjut jika diperlukan.</div>
+            </div>
+            {% endif %}
 
-                <div class="chart-container">
-                    <canvas id="trendChart" height="220"></canvas>
-                </div>
-
-                <h3 class="card-header" style="font-size: 1.3em; border-top: 1px solid var(--border-color); padding-top: 24px; margin-top: 16px;">Statistik & Insight</h3>
-                <div id="statistik-pengguna">
-                    <ul class="insight-list">
-                        <li>Jumlah pertanyaan minggu ini: <b>{{ jumlah_pertanyaan }}</b></li>
-                        {% if selected_region or selected_province_id %}
-                        <li>Wilayah aktif: <b>{{ wilayah_aktif }}</b></li>
-                        {% endif %}
-                        <li>Jam aktif tertinggi: <b>{{ jam_aktif_tertinggi or '-' }}</b></li>
-                        <li>Rata-rata pertanyaan per user: <b>{{ rata2_pertanyaan_per_user or '-' }}</b></li>
-                    </ul>
-                </div>
-            </section>
-
-            <section class="card">
-                <h2 class="card-header">Peta Sebaran & Topik Regional</h2>
-                
-                <div class="filter-bar">
-                    <div class="filter-group">
-                        <label for="filter-topic">Topik Peta</label>
-                        <select id="filter-topic">
-                            <option value="">Semua Topik</option>
-                            {% for t in all_topics %}
-                            <option value="{{ t }}">{{ t }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label for="map-days">Rentang Peta</label>
-                        <select id="map-days">
-                            <option value="30" selected>30 hari</option>
-                            <option value="90">90 hari</option>
-                            <option value="180">180 hari</option>
-                        </select>
-                    </div>
-                </div>
-
-                <div class="map-container">
-                    <div id="map"></div>
-                    <p class="map-caption">Titik menampilkan agregasi per wilayah untuk topik terpilih.</p>
-                </div>
-
-                <div id="national-view" class="regional-topics-container">
-                    <h4>🇮🇩 Tren Topik Nasional</h4>
-                    <div class="topic-list-card">
-                        <h5>Topik Terpopuler Secara Nasional:</h5>
-                        <ol>
-                            {% for topic_item in top_topics %}
-                            <li><b>{{ topic_item.name }}</b>: {{ topic_item.count }} pertanyaan</li>
-                            {% endfor %}
-                        </ol>
-                        <div class="footer-note">📊 Data agregat dari seluruh wilayah Indonesia</div>
-                    </div>
-                </div>
-
-                {% if topic_by_region %}
-                <div class="filter-bar" style="margin-top: 16px;">
-                    <div class="filter-group">
-                        <label for="regional-filter">Lihat Tren Topik di:</label>
-                        <select id="regional-filter">
-                            <option value="">Nasional (Semua Daerah)</option>
-                            {% for region in topic_by_region.keys() %}
-                            <option value="{{ region }}">{{ region }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                </div>
-
-                <div id="regional-topics-container" class="regional-topics-container">
-                    <div id="single-region-view" style="display:none;">
-                        {% for region, topics in topic_by_region.items() %}
-                        <div class="single-region-data" data-region="{{ region }}" style="display:none;">
-                            <h4>📍 {{ region }}</h4>
-                            <div class="topic-list-card">
-                                {% if topics %}
-                                    <h5>Topik Terpopuler:</h5>
-                                    <ol>
-                                        {% for topic, count in topics.most_common(10) %}
-                                        <li><b>{{ topic }}</b>: {{ count }} pertanyaan</li>
-                                        {% endfor %}
-                                    </ol>
-                                {% else %}
-                                    <p style="text-align:center; color: var(--text-secondary);"><i>Tidak ada data topik untuk daerah ini.</i></p>
-                                {% endif %}
-                            </div>
+            <main class="dashboard-grid">
+                <section class="card">
+                    <h2 class="card-header">Analisis Tren Topik</h2>
+                    
+                    <div class="filter-bar">
+                        <div class="filter-group">
+                            <label for="filter-province">Provinsi</label>
+                            <select id="filter-province">
+                                <option value="">Semua Provinsi</option>
+                            </select>
                         </div>
-                        {% endfor %}
+                        <div class="filter-group">
+                            <label for="admin-region">Kab/Kota</label>
+                            <select id="admin-region">
+                                <option value="">Semua Kab/Kota</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="trend-period">Periode</label>
+                            <select id="trend-period">
+                                <option value="day">Harian</option>
+                                <option value="week" selected>Mingguan</option>
+                                <option value="month">Bulanan</option>
+                            </select>
+                        </div>
+                         <div class="filter-group">
+                            <label for="trend-days">Rentang</label>
+                            <select id="trend-days">
+                                <option value="30">30 hari</option>
+                                <option value="90" selected>90 hari</option>
+                                <option value="180">180 hari</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="time-range">Waktu</label>
+                            <select id="time-range">
+                                <option value="5_minutes">5 Menit</option>
+                                <option value="4_hours">4 Jam</option>
+                                <option value="1_day">1 Hari</option>
+                                <option value="1_week" selected>1 Minggu</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="chart-container">
+                        <canvas id="trendChart" height="220"></canvas>
+                    </div>
+
+                    <h3 class="card-header" style="font-size: 1.3em; border-top: 1px solid var(--border-color); padding-top: 24px; margin-top: 16px;">Statistik & Insight</h3>
+                    <div id="statistik-pengguna">
+                        <ul class="insight-list">
+                            <li>Jumlah pertanyaan minggu ini: <b>{{ jumlah_pertanyaan }}</b></li>
+                            {% if selected_region or selected_province_id %}
+                            <li>Wilayah aktif: <b>{{ wilayah_aktif }}</b></li>
+                            {% endif %}
+                            <li>Jam aktif tertinggi: <b>{{ jam_aktif_tertinggi or '-' }}</b></li>
+                            <li>Rata-rata pertanyaan per user: <b>{{ rata2_pertanyaan_per_user or '-' }}</b></li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section class="card">
+                    <h2 class="card-header">Peta Sebaran & Topik Regional</h2>
+                    
+                    <div class="filter-bar">
+                        <div class="filter-group">
+                            <label for="filter-topic">Topik Peta</label>
+                            <select id="filter-topic">
+                                <option value="">Semua Topik</option>
+                                {% for t in all_topics %}
+                                <option value="{{ t }}">{{ t }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="map-days">Rentang Peta</label>
+                            <select id="map-days">
+                                <option value="30" selected>30 hari</option>
+                                <option value="90">90 hari</option>
+                                <option value="180">180 hari</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="map-container">
+                        <div id="map"></div>
+                        <p class="map-caption">Titik menampilkan agregasi per wilayah untuk topik terpilih.</p>
+                    </div>
+
+                    <div id="national-view" class="regional-topics-container">
+                        <h4>🇮🇩 Tren Topik Nasional</h4>
+                        <div class="topic-list-card">
+                            <h5>Topik Terpopuler Secara Nasional:</h5>
+                            <ol>
+                                {% for topic_item in top_topics %}
+                                <li><b>{{ topic_item.name }}</b>: {{ topic_item.count }} pertanyaan</li>
+                                {% endfor %}
+                            </ol>
+                            <div class="footer-note">📊 Data agregat dari seluruh wilayah Indonesia</div>
+                        </div>
+                    </div>
+
+                    {% if topic_by_region %}
+                    <div class="filter-bar" style="margin-top: 16px;">
+                        <div class="filter-group">
+                            <label for="regional-filter">Lihat Tren Topik di:</label>
+                            <select id="regional-filter">
+                                <option value="">Nasional (Semua Daerah)</option>
+                                {% for region in topic_by_region.keys() %}
+                                <option value="{{ region }}">{{ region }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div id="regional-topics-container" class="regional-topics-container">
+                        <div id="single-region-view" style="display:none;">
+                            {% for region, topics in topic_by_region.items() %}
+                            <div class="single-region-data" data-region="{{ region }}" style="display:none;">
+                                <h4>📍 {{ region }}</h4>
+                                <div class="topic-list-card">
+                                    {% if topics %}
+                                        <h5>Topik Terpopuler:</h5>
+                                        <ol>
+                                            {% for topic, count in topics.most_common(10) %}
+                                            <li><b>{{ topic }}</b>: {{ count }} pertanyaan</li>
+                                            {% endfor %}
+                                        </ol>
+                                    {% else %}
+                                        <p style="text-align:center; color: var(--text-secondary);"><i>Tidak ada data topik untuk daerah ini.</i></p>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endif %}
+                </section>
+            </main>
+        </div>
+
+        <!-- User Management Tab -->
+        <div id="users" class="tab-content">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-number" id="total-users">-</div>
+                    <div class="stat-label">Total Users</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="active-users">-</div>
+                    <div class="stat-label">Active Users</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="new-users">-</div>
+                    <div class="stat-label">New Users (30 days)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="admin-users">-</div>
+                    <div class="stat-label">Admin Users</div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                    <h2>Daftar Users</h2>
+                    <div>
+                        <button class="export-btn" onclick="exportUsers()">📊 Export CSV</button>
+                        <button class="export-btn" onclick="showAddUserModal()">➕ Tambah User</button>
                     </div>
                 </div>
-                {% endif %}
-            </section>
-        </main>
+                
+                <input type="text" class="search-box" id="userSearch" placeholder="Cari user berdasarkan nama, email, atau wilayah..." onkeyup="filterUsers()">
+                
+                <div id="users-list">
+                    <table class="user-table" id="userTable">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Nama</th>
+                                <th>Email</th>
+                                <th>Role</th>
+                                <th>Wilayah</th>
+                                <th>Tanggal Daftar</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Users will be loaded here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="analytics" class="tab-content">
+            <div class="analytics-card">
+                <h3>📈 User Registration Trend</h3>
+                <canvas id="registrationChart" class="chart-small"></canvas>
+            </div>
+            
+            <div class="analytics-card">
+                <h3>💬 Chat Activity by Region</h3>
+                <canvas id="regionActivityChart" class="chart-small"></canvas>
+            </div>
+            
+            <div class="analytics-card">
+                <h3>🕒 System Performance</h3>
+                <div class="stats-grid">
+                    <div style="text-align: center;">
+                        <strong>Response Time</strong><br>
+                        <span id="avg-response-time">-</span>ms
+                    </div>
+                    <div style="text-align: center;">
+                        <strong>Total Queries</strong><br>
+                        <span id="total-queries">-</span>
+                    </div>
+                    <div style="text-align: center;">
+                        <strong>Error Rate</strong><br>
+                        <span id="error-rate">-</span>%
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Logs Tab -->
+        <div id="logs" class="tab-content">
+            <div class="card">
+                <h2>📋 System Activity Logs</h2>
+                <div class="filter-bar">
+                    <div class="filter-group">
+                        <label for="log-type">Tipe Log</label>
+                        <select id="log-type">
+                            <option value="">Semua</option>
+                            <option value="login">Login</option>
+                            <option value="chat">Chat</option>
+                            <option value="admin">Admin Action</option>
+                            <option value="error">Error</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="log-days">Periode</label>
+                        <select id="log-days">
+                            <option value="1">1 Hari</option>
+                            <option value="7" selected>7 Hari</option>
+                            <option value="30">30 Hari</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="activity-log" id="activityLog">
+                    <!-- Logs will be loaded here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('addUserModal')">&times;</span>
+            <h2>Tambah User Baru</h2>
+            <form id="addUserForm">
+                <div class="form-group">
+                    <label for="userName">Nama Lengkap</label>
+                    <input type="text" id="userName" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="userEmail">Email</label>
+                    <input type="email" id="userEmail" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="userPhone">Nomor HP</label>
+                    <input type="tel" id="userPhone" name="phone" required>
+                </div>
+                <div class="form-group">
+                    <label for="userRole">Role</label>
+                    <select id="userRole" name="role" required>
+                        <option value="petani">Petani</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="userRegion">Wilayah</label>
+                    <input type="text" id="userRegion" name="region">
+                </div>
+                <div class="form-group">
+                    <label for="userPassword">Password</label>
+                    <input type="password" id="userPassword" name="password" required>
+                </div>
+                <button type="submit" class="export-btn">Simpan User</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="editUserModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeModal('editUserModal')">&times;</span>
+            <h2>Edit User</h2>
+            <form id="editUserForm">
+                <input type="hidden" id="editUserId" name="id">
+                <div class="form-group">
+                    <label for="editUserName">Nama Lengkap</label>
+                    <input type="text" id="editUserName" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label for="editUserEmail">Email</label>
+                    <input type="email" id="editUserEmail" name="email" required>
+                </div>
+                <div class="form-group">
+                    <label for="editUserPhone">Nomor HP</label>
+                    <input type="tel" id="editUserPhone" name="phone" required>
+                </div>
+                <div class="form-group">
+                    <label for="editUserRole">Role</label>
+                    <select id="editUserRole" name="role" required>
+                        <option value="petani">Petani</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="editUserRegion">Wilayah</label>
+                    <input type="text" id="editUserRegion" name="region">
+                </div>
+                <button type="submit" class="export-btn">Update User</button>
+            </form>
+        </div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <script>
+    // Tab functionality
+    function showTab(tabName) {
+        // Hide all tab contents
+        document.querySelectorAll('.tab-content').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Remove active class from all tabs
+        document.querySelectorAll('.nav-tab').forEach(tab => {
+            tab.classList.remove('active');
+        });
+        
+        // Show selected tab content
+        document.getElementById(tabName).classList.add('active');
+        
+        // Add active class to clicked tab
+        event.target.classList.add('active');
+        
+        // Load content based on tab
+        if (tabName === 'users') {
+            loadUsers();
+            loadUserStats();
+        } else if (tabName === 'analytics') {
+            loadAnalytics();
+        } else if (tabName === 'logs') {
+            loadSystemLogs();
+        }
+    }
+
+    // User Management Functions
+    async function loadUsers() {
+        try {
+            const response = await fetch('/api/admin/users');
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            const tbody = document.querySelector('#userTable tbody');
+            tbody.innerHTML = '';
+            
+            data.users.forEach(user => {
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td>${user.id}</td>
+                    <td>${user.name}</td>
+                    <td>${user.email}</td>
+                    <td><span class="badge ${user.role === 'admin' ? 'badge-admin' : 'badge-user'}">${user.role}</span></td>
+                    <td>${user.region || '-'}</td>
+                    <td>${new Date(user.created_at).toLocaleDateString('id-ID')}</td>
+                    <td>
+                        <button class="action-btn btn-view" onclick="viewUser(${user.id})">👁️</button>
+                        <button class="action-btn btn-edit" onclick="editUser(${user.id})">✏️</button>
+                        <button class="action-btn btn-delete" onclick="deleteUser(${user.id})">🗑️</button>
+                    </td>
+                `;
+                tbody.appendChild(row);
+            });
+        } catch (error) {
+            console.error('Error loading users:', error);
+            showAlert('Gagal memuat data users', 'danger');
+        }
+    }
+
+    async function loadUserStats() {
+        try {
+            const response = await fetch('/api/admin/user-stats');
+            const data = await response.json();
+            
+            document.getElementById('total-users').textContent = data.total_users || 0;
+            document.getElementById('active-users').textContent = data.active_users || 0;
+            document.getElementById('new-users').textContent = data.new_users || 0;
+            document.getElementById('admin-users').textContent = data.admin_users || 0;
+        } catch (error) {
+            console.error('Error loading user stats:', error);
+        }
+    }
+
+    function filterUsers() {
+        const searchTerm = document.getElementById('userSearch').value.toLowerCase();
+        const rows = document.querySelectorAll('#userTable tbody tr');
+        
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(searchTerm) ? '' : 'none';
+        });
+    }
+
+    function showAddUserModal() {
+        document.getElementById('addUserModal').style.display = 'block';
+    }
+
+    function closeModal(modalId) {
+        document.getElementById(modalId).style.display = 'none';
+    }
+
+    async function editUser(userId) {
+        try {
+            const response = await fetch(`/api/admin/users/${userId}`);
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            const user = data.user;
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('editUserName').value = user.name;
+            document.getElementById('editUserEmail').value = user.email;
+            document.getElementById('editUserPhone').value = user.phone;
+            document.getElementById('editUserRole').value = user.role;
+            document.getElementById('editUserRegion').value = user.region || '';
+            
+            document.getElementById('editUserModal').style.display = 'block';
+        } catch (error) {
+            console.error('Error loading user:', error);
+            showAlert('Gagal memuat data user', 'danger');
+        }
+    }
+
+    async function deleteUser(userId) {
+        if (!confirm('Apakah Anda yakin ingin menghapus user ini?')) {
+            return;
+        }
+        
+        try {
+            const response = await fetch(`/api/admin/users/${userId}`, {
+                method: 'DELETE'
+            });
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            showAlert('User berhasil dihapus', 'success');
+            loadUsers();
+            loadUserStats();
+        } catch (error) {
+            console.error('Error deleting user:', error);
+            showAlert('Gagal menghapus user', 'danger');
+        }
+    }
+
+    function exportUsers() {
+        window.open('/api/admin/export-users', '_blank');
+    }
+
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type}`;
+        alertDiv.textContent = message;
+        
+        const container = document.querySelector('.dashboard-container');
+        container.insertBefore(alertDiv, container.firstChild);
+        
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+
+    // Analytics Functions
+    async function loadAnalytics() {
+        try {
+            const response = await fetch('/api/admin/analytics');
+            const data = await response.json();
+            
+            // Load registration chart
+            loadRegistrationChart(data.registration_trend);
+            
+            // Load region activity chart
+            loadRegionActivityChart(data.region_activity);
+            
+            // Update performance metrics
+            document.getElementById('avg-response-time').textContent = data.avg_response_time || '-';
+            document.getElementById('total-queries').textContent = data.total_queries || '-';
+            document.getElementById('error-rate').textContent = data.error_rate || '-';
+        } catch (error) {
+            console.error('Error loading analytics:', error);
+        }
+    }
+
+    function loadRegistrationChart(data) {
+        const ctx = document.getElementById('registrationChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: data.labels || [],
+                datasets: [{
+                    label: 'New Registrations',
+                    data: data.values || [],
+                    borderColor: 'var(--primary-color)',
+                    backgroundColor: 'var(--primary-light)',
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    function loadRegionActivityChart(data) {
+        const ctx = document.getElementById('regionActivityChart').getContext('2d');
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: data.labels || [],
+                datasets: [{
+                    label: 'Chat Activity',
+                    data: data.values || [],
+                    backgroundColor: 'var(--primary-color)',
+                    borderRadius: 4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    y: { beginAtZero: true }
+                }
+            }
+        });
+    }
+
+    // System Logs Functions
+    async function loadSystemLogs() {
+        try {
+            const logType = document.getElementById('log-type').value;
+            const days = document.getElementById('log-days').value;
+            
+            const response = await fetch(`/api/admin/logs?type=${logType}&days=${days}`);
+            const data = await response.json();
+            
+            const logContainer = document.getElementById('activityLog');
+            logContainer.innerHTML = '';
+            
+            data.logs.forEach(log => {
+                const logEntry = document.createElement('div');
+                logEntry.className = 'log-entry';
+                logEntry.innerHTML = `
+                    <div>${log.message}</div>
+                    <div class="log-time">${new Date(log.timestamp).toLocaleString('id-ID')}</div>
+                `;
+                logContainer.appendChild(logEntry);
+            });
+        } catch (error) {
+            console.error('Error loading logs:', error);
+        }
+    }
+
+    // Form submission handlers
+    document.getElementById('addUserForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const userData = Object.fromEntries(formData.entries());
+        userData.dob = '2000-01-01'; // Default date
+        userData.gender = 'L'; // Default gender
+        
+        try {
+            const response = await fetch('/api/admin/users', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(userData)
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            showAlert('User berhasil ditambahkan', 'success');
+            closeModal('addUserModal');
+            loadUsers();
+            loadUserStats();
+            e.target.reset();
+        } catch (error) {
+            console.error('Error adding user:', error);
+            showAlert('Gagal menambahkan user', 'danger');
+        }
+    });
+
+    document.getElementById('editUserForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(e.target);
+        const userData = Object.fromEntries(formData.entries());
+        const userId = userData.id;
+        delete userData.id;
+        
+        try {
+            const response = await fetch(`/api/admin/users/${userId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(userData)
+            });
+            
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
+            
+            showAlert('User berhasil diupdate', 'success');
+            closeModal('editUserModal');
+            loadUsers();
+        } catch (error) {
+            console.error('Error updating user:', error);
+            showAlert('Gagal mengupdate user', 'danger');
+        }
+    });
+
+    // Event listeners for log filters
+    document.getElementById('log-type').addEventListener('change', loadSystemLogs);
+    document.getElementById('log-days').addEventListener('change', loadSystemLogs);
+
+    // Close modals when clicking outside
+    window.addEventListener('click', (e) => {
+        if (e.target.classList.contains('modal')) {
+            e.target.style.display = 'none';
+        }
+    });
+
     // ============ Chart: Tren Topik ==========
     const trendCtx = document.getElementById('trendChart').getContext('2d');
     let trendChart = null;
@@ -440,15 +1314,134 @@ if (regionalFilterElement) {
     });
 }
 
-    window.addEventListener('DOMContentLoaded', async () => {
-        await populateProvinces();
-        if (preselectedProvinceId) {
-            await populateRegencies(preselectedProvinceId);
-        }
-        initMap();
-        await loadTrendChart();
-        await renderTopicBubbles(topicEl.value, mapDaysEl.value);
-    });
-    </script>
+         window.addEventListener('DOMContentLoaded', async () => {
+         await populateProvinces();
+         if (preselectedProvinceId) {
+             await populateRegencies(preselectedProvinceId);
+         }
+         initMap();
+         await loadTrendChart();
+         await renderTopicBubbles(topicEl.value, mapDaysEl.value);
+         
+         // Initialize notification system
+         initNotificationSystem();
+     });
+
+     // ============ Notification System ==========
+     let notificationCount = 0;
+     let notificationsVisible = false;
+
+     function initNotificationSystem() {
+         // Check for new activities every 30 seconds
+         setInterval(checkForNewActivities, 30000);
+         
+         // Show welcome notification
+         setTimeout(() => {
+             showNotification('success', 'Dashboard Ready', 'Admin dashboard loaded successfully!');
+         }, 1000);
+     }
+
+     function showNotification(type, title, message, autoHide = true) {
+         const notificationCenter = document.getElementById('notificationCenter');
+         const notification = document.createElement('div');
+         notification.className = `notification ${type}`;
+         
+         const now = new Date();
+         const timeStr = now.toLocaleTimeString('id-ID', {
+             hour: '2-digit',
+             minute: '2-digit'
+         });
+         
+         notification.innerHTML = `
+             <div class="notification-header">
+                 <span>${title}</span>
+                 <button class="notification-close" onclick="removeNotification(this)">×</button>
+             </div>
+             <div class="notification-body">${message}</div>
+             <div class="notification-time">${timeStr}</div>
+         `;
+         
+         notificationCenter.appendChild(notification);
+         
+         // Update badge
+         notificationCount++;
+         updateNotificationBadge();
+         
+         // Auto-hide after 5 seconds
+         if (autoHide) {
+             setTimeout(() => {
+                 removeNotification(notification.querySelector('.notification-close'));
+             }, 5000);
+         }
+     }
+
+     function removeNotification(closeBtn) {
+         const notification = closeBtn.closest('.notification');
+         notification.style.animation = 'slideInRight 0.3s ease-out reverse';
+         setTimeout(() => {
+             notification.remove();
+             notificationCount = Math.max(0, notificationCount - 1);
+             updateNotificationBadge();
+         }, 300);
+     }
+
+     function updateNotificationBadge() {
+         const badge = document.getElementById('notificationBadge');
+         if (notificationCount > 0) {
+             badge.textContent = notificationCount > 99 ? '99+' : notificationCount;
+             badge.style.display = 'flex';
+         } else {
+             badge.style.display = 'none';
+         }
+     }
+
+     function toggleNotifications() {
+         // Mark all as read
+         notificationCount = 0;
+         updateNotificationBadge();
+         
+         // Show notification summary
+         showNotification('info', 'Notifications', 'All notifications marked as read', true);
+     }
+
+     async function checkForNewActivities() {
+         try {
+             // Check for new users in last minute
+             const response = await fetch('/api/admin/recent-activity');
+             if (response.ok) {
+                 const data = await response.json();
+                 
+                 if (data.new_users > 0) {
+                     showNotification('success', 'New Users', 
+                         `${data.new_users} new user${data.new_users > 1 ? 's' : ''} registered`, false);
+                 }
+                 
+                 if (data.new_chats > 0) {
+                     showNotification('info', 'Activity Update', 
+                         `${data.new_chats} new question${data.new_chats > 1 ? 's' : ''} received`, false);
+                 }
+                 
+                 if (data.errors > 0) {
+                     showNotification('error', 'System Alert', 
+                         `${data.errors} error${data.errors > 1 ? 's' : ''} detected in the last hour`, false);
+                 }
+             }
+         } catch (error) {
+             console.error('Error checking for new activities:', error);
+         }
+     }
+
+     // Override the existing showAlert function to use the notification system
+     function showAlert(message, type) {
+         const typeMap = {
+             'success': 'success',
+             'danger': 'error',
+             'warning': 'warning',
+             'info': 'info'
+         };
+         
+         showNotification(typeMap[type] || 'info', 'Alert', message, true);
+     }
+     </script>
 </body>
 </html>
