@@ -1464,6 +1464,101 @@ def register_routes(app):
         except Exception as e:
             return jsonify({'error': str(e)}), 500
 
+    @app.route('/api/admin/provincial-topics', methods=['GET'])
+    def api_admin_provincial_topics():
+        if 'user_id' not in session or session.get('user_role') != 'admin':
+            return jsonify({'error': 'Unauthorized'}), 401
+        
+        from .models import ChatHistory, User, Regency, Province
+        from .topic_modeling import find_topic_clusters
+        from collections import Counter
+        from datetime import datetime, timedelta
+        
+        try:
+            province_id = request.args.get('province_id')
+            if not province_id:
+                return jsonify({'error': 'Province ID is required'}), 400
+            
+            # Get province info
+            province = Province.query.get(province_id)
+            if not province:
+                return jsonify({'error': 'Province not found'}), 404
+            
+            # Get all regencies in this province
+            regencies = Regency.query.filter_by(province_id=province_id).all()
+            regency_names = [r.name.replace('KABUPATEN ', '').replace('KOTA ', '') for r in regencies]
+            
+            # Get users from this province (match regency names with user regions)
+            users_in_province = []
+            if regency_names:
+                conditions = [User.region.ilike(f'%{name}%') for name in regency_names]
+                users_in_province = User.query.filter(db.or_(*conditions)).all()
+            
+            if not users_in_province:
+                return jsonify({
+                    'topics': [],
+                    'total_questions': 0,
+                    'province_name': province.name
+                })
+            
+            user_ids = [u.id for u in users_in_province]
+            
+            # Get chat history for users in this province (last 30 days)
+            thirty_days_ago = datetime.now() - timedelta(days=30)
+            chats = ChatHistory.query.filter(
+                ChatHistory.user_id.in_(user_ids),
+                ChatHistory.created_at >= thirty_days_ago
+            ).all()
+            
+            if not chats:
+                return jsonify({
+                    'topics': [],
+                    'total_questions': 0,
+                    'province_name': province.name
+                })
+            
+            # Extract topics from questions using topic modeling
+            questions = [chat.question for chat in chats]
+            
+            # Use topic modeling to find clusters
+            try:
+                topics = find_topic_clusters(questions, n_clusters=min(5, len(questions)//10 + 1))
+            except:
+                # Fallback: simple keyword extraction
+                topics = []
+                word_freq = Counter()
+                for question in questions:
+                    words = question.lower().split()
+                    # Filter common words and get meaningful terms
+                    meaningful_words = [w for w in words if len(w) > 3 and w not in ['yang', 'dengan', 'untuk', 'dari', 'pada', 'dalam', 'akan', 'sudah', 'bisa', 'tidak', 'apakah', 'bagaimana', 'kenapa']]
+                    word_freq.update(meaningful_words)
+                
+                # Get top keywords as topics
+                top_words = word_freq.most_common(10)
+                topics = [{'name': word.title(), 'count': count} for word, count in top_words]
+            
+            # Ensure topics is in the right format
+            if isinstance(topics, list) and topics:
+                if isinstance(topics[0], str):
+                    # Convert string topics to dict format
+                    topic_counter = Counter()
+                    for topic in topics:
+                        topic_counter[topic] += 1
+                    
+                    topics = [{'name': topic, 'count': count} for topic, count in topic_counter.most_common(10)]
+            
+            return jsonify({
+                'topics': topics[:10],  # Limit to top 10
+                'total_questions': len(chats),
+                'province_name': province.name
+            })
+            
+        except Exception as e:
+            print(f"Error in provincial topics: {e}")
+            import traceback
+            traceback.print_exc()
+            return jsonify({'error': str(e)}), 500
+
     # Helper function for region coordinates (enhanced version)
     def get_region_coordinates(region_name):
         """Get latitude and longitude for a region name"""

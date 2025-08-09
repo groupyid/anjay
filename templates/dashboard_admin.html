@@ -470,16 +470,24 @@
                         <p class="map-caption">Titik menampilkan agregasi per wilayah untuk topik terpilih.</p>
                     </div>
 
-                    <div id="national-view" class="regional-topics-container">
-                        <h4>🇮🇩 Tren Topik Nasional</h4>
-                        <div class="topic-list-card">
-                            <h5>Topik Terpopuler Secara Nasional:</h5>
-                            <ol>
-                                {% for topic_item in top_topics %}
-                                <li><b>{{ topic_item.name }}</b>: {{ topic_item.count }} pertanyaan</li>
-                                {% endfor %}
-                            </ol>
-                            <div class="footer-note">📊 Data agregat dari seluruh wilayah Indonesia</div>
+                    <!-- Provincial Topics Selection -->
+                    <div class="filter-bar" style="margin-top: 20px;">
+                        <div class="filter-group">
+                            <label for="provincial-topics-filter">Lihat Tren Topik Provinsi:</label>
+                            <select id="provincial-topics-filter">
+                                <option value="">Pilih Provinsi</option>
+                                <!-- Provinces will be populated dynamically -->
+                            </select>
+                        </div>
+                        <button class="export-btn" onclick="loadProvincialTopics()" style="margin-left: 10px;">🔄 Refresh</button>
+                    </div>
+
+                    <div id="provincial-view" class="regional-topics-container">
+                        <h4 id="provincial-title">📍 Pilih provinsi untuk melihat tren topik</h4>
+                        <div class="topic-list-card" id="provincial-topics-content">
+                            <p style="text-align:center; color: var(--text-secondary); padding: 40px;">
+                                <i>Silakan pilih provinsi dari dropdown di atas untuk melihat tren topik populer di wilayah tersebut.</i>
+                            </p>
                         </div>
                     </div>
 
@@ -740,6 +748,20 @@
             loadAnalytics();
         } else if (tabName === 'logs') {
             loadSystemLogs();
+        } else if (tabName === 'overview') {
+            // Initialize map when switching to overview tab
+            if (!map) {
+                setTimeout(() => {
+                    initMap();
+                }, 100);
+            } else {
+                // Refresh map size if it already exists
+                setTimeout(() => {
+                    if (map) {
+                        map.invalidateSize();
+                    }
+                }, 100);
+            }
         }
     }
 
@@ -897,9 +919,18 @@
         }
     }
 
+    let registrationChart = null;
+    let regionActivityChart = null;
+
     function loadRegistrationChart(data) {
         const ctx = document.getElementById('registrationChart').getContext('2d');
-        new Chart(ctx, {
+        
+        // Destroy existing chart to prevent exponential growth
+        if (registrationChart) {
+            registrationChart.destroy();
+        }
+        
+        registrationChart = new Chart(ctx, {
             type: 'line',
             data: {
                 labels: data.labels || [],
@@ -907,9 +938,11 @@
                     label: 'New Registrations',
                     data: data.values || [],
                     borderColor: 'var(--primary-color)',
-                    backgroundColor: 'var(--primary-light)',
+                    backgroundColor: 'rgba(46, 125, 50, 0.1)',
                     tension: 0.3,
-                    fill: true
+                    fill: true,
+                    pointRadius: 3,
+                    pointHoverRadius: 6
                 }]
             },
             options: {
@@ -919,7 +952,13 @@
                     legend: { display: false }
                 },
                 scales: {
-                    y: { beginAtZero: true }
+                    y: { 
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0,
+                            stepSize: 1
+                        }
+                    }
                 }
             }
         });
@@ -927,7 +966,13 @@
 
     function loadRegionActivityChart(data) {
         const ctx = document.getElementById('regionActivityChart').getContext('2d');
-        new Chart(ctx, {
+        
+        // Destroy existing chart to prevent exponential growth
+        if (regionActivityChart) {
+            regionActivityChart.destroy();
+        }
+        
+        regionActivityChart = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: data.labels || [],
@@ -935,7 +980,9 @@
                     label: 'Chat Activity',
                     data: data.values || [],
                     backgroundColor: 'var(--primary-color)',
-                    borderRadius: 4
+                    borderRadius: 4,
+                    borderWidth: 1,
+                    borderColor: 'var(--primary-dark)'
                 }]
             },
             options: {
@@ -945,7 +992,13 @@
                     legend: { display: false }
                 },
                 scales: {
-                    y: { beginAtZero: true }
+                    y: { 
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0,
+                            stepSize: 1
+                        }
+                    }
                 }
             }
         });
@@ -1198,16 +1251,38 @@
     let map = null;
     let bubbleLayer = null;
 
-function initMap() {
-    if (map) {
-        return;
+    function initMap() {
+        if (map) {
+            return;
+        }
+        
+        // Ensure map container exists and is visible
+        const mapContainer = document.getElementById('map');
+        if (!mapContainer) {
+            console.error('Map container not found');
+            return;
+        }
+        
+        // Small delay to ensure container is properly rendered
+        setTimeout(() => {
+            try {
+                map = L.map('map').setView(defaultCenter, 4.5);
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map);
+                bubbleLayer = L.layerGroup().addTo(map);
+                
+                // Force map resize after initialization
+                setTimeout(() => {
+                    if (map) {
+                        map.invalidateSize();
+                    }
+                }, 100);
+            } catch (error) {
+                console.error('Error initializing map:', error);
+            }
+        }, 100);
     }
-    map = L.map('map').setView(defaultCenter, 4.5);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-    }).addTo(map);
-    bubbleLayer = L.layerGroup().addTo(map);
-}
 
     function radiusFromCount(count) {
         return 6 + Math.log(count + 1) * 5;
@@ -1296,36 +1371,134 @@ function initMap() {
         await renderTopicBubbles(topicEl.value, mapDaysEl.value);
     }, 200);
 
-const regionalFilterElement = document.getElementById('regional-filter');
+    // Provincial Topics Functions
+    async function populateProvincialFilter() {
+        try {
+            const res = await fetch('/api/admin/provinces');
+            const json = await res.json();
+            const provinces = json.provinces || [];
+            const provincialFilter = document.getElementById('provincial-topics-filter');
+            
+            if (provincialFilter) {
+                // Clear existing options except the first one
+                for (let i = provincialFilter.options.length - 1; i >= 1; i--) {
+                    provincialFilter.remove(i);
+                }
+                
+                provinces.forEach(p => {
+                    const opt = document.createElement('option');
+                    opt.value = String(p.id);
+                    opt.textContent = p.name;
+                    provincialFilter.appendChild(opt);
+                });
+            }
+        } catch (e) {
+            console.error('Gagal memuat provinsi untuk filter', e);
+        }
+    }
 
-// PENTING: Hanya tambahkan event listener jika elemennya benar-benar ada di halaman
-if (regionalFilterElement) {
-    regionalFilterElement.addEventListener('change', function() {
-        const selectedRegion = this.value;
-        const nationalView = document.getElementById('national-view');
-        const singleRegionView = document.getElementById('single-region-view');
+    async function loadProvincialTopics() {
+        const provincialFilter = document.getElementById('provincial-topics-filter');
+        const provinceId = provincialFilter ? provincialFilter.value : '';
+        
+        if (!provinceId) {
+            showAlert('Silakan pilih provinsi terlebih dahulu', 'warning');
+            return;
+        }
 
-        if (nationalView) nationalView.style.display = (selectedRegion === '') ? 'block' : 'none';
-        if (singleRegionView) singleRegionView.style.display = (selectedRegion === '') ? 'none' : 'block';
+        try {
+            const response = await fetch(`/api/admin/provincial-topics?province_id=${provinceId}`);
+            const data = await response.json();
+            
+            if (data.error) {
+                throw new Error(data.error);
+            }
 
-        document.querySelectorAll('.single-region-data').forEach(card => {
-            card.style.display = (card.dataset.region === selectedRegion) ? 'block' : 'none';
-        });
+            const provinceName = provincialFilter.options[provincialFilter.selectedIndex].text;
+            const titleElement = document.getElementById('provincial-title');
+            const contentElement = document.getElementById('provincial-topics-content');
+            
+            titleElement.textContent = `📍 Tren Topik Populer - ${provinceName}`;
+            
+            if (data.topics && data.topics.length > 0) {
+                let html = '<h5>Topik Terpopuler:</h5><ol>';
+                data.topics.forEach(topic => {
+                    html += `<li><b>${topic.name}</b>: ${topic.count} pertanyaan</li>`;
+                });
+                html += '</ol>';
+                html += `<div class="footer-note">📊 Data dari ${data.total_questions} pertanyaan di ${provinceName}</div>`;
+                contentElement.innerHTML = html;
+            } else {
+                contentElement.innerHTML = `
+                    <p style="text-align:center; color: var(--text-secondary); padding: 40px;">
+                        <i>Belum ada data topik untuk provinsi ${provinceName}.</i>
+                    </p>
+                `;
+            }
+        } catch (error) {
+            console.error('Error loading provincial topics:', error);
+            showAlert('Gagal memuat data topik provinsi', 'danger');
+        }
+    }
+
+    // Provincial filter change handler
+    document.addEventListener('DOMContentLoaded', function() {
+        const provincialFilter = document.getElementById('provincial-topics-filter');
+        if (provincialFilter) {
+            provincialFilter.addEventListener('change', function() {
+                if (this.value) {
+                    loadProvincialTopics();
+                } else {
+                    const titleElement = document.getElementById('provincial-title');
+                    const contentElement = document.getElementById('provincial-topics-content');
+                    
+                    titleElement.textContent = '📍 Pilih provinsi untuk melihat tren topik';
+                    contentElement.innerHTML = `
+                        <p style="text-align:center; color: var(--text-secondary); padding: 40px;">
+                            <i>Silakan pilih provinsi dari dropdown di atas untuk melihat tren topik populer di wilayah tersebut.</i>
+                        </p>
+                    `;
+                }
+            });
+        }
     });
-}
 
-         window.addEventListener('DOMContentLoaded', async () => {
-         await populateProvinces();
-         if (preselectedProvinceId) {
-             await populateRegencies(preselectedProvinceId);
-         }
-         initMap();
-         await loadTrendChart();
-         await renderTopicBubbles(topicEl.value, mapDaysEl.value);
-         
-         // Initialize notification system
-         initNotificationSystem();
-     });
+    const regionalFilterElement = document.getElementById('regional-filter');
+
+    // PENTING: Hanya tambahkan event listener jika elemennya benar-benar ada di halaman
+    if (regionalFilterElement) {
+        regionalFilterElement.addEventListener('change', function() {
+            const selectedRegion = this.value;
+            const singleRegionView = document.getElementById('single-region-view');
+
+            if (singleRegionView) singleRegionView.style.display = (selectedRegion === '') ? 'none' : 'block';
+
+            document.querySelectorAll('.single-region-data').forEach(card => {
+                card.style.display = (card.dataset.region === selectedRegion) ? 'block' : 'none';
+            });
+        });
+    }
+
+                   window.addEventListener('DOMContentLoaded', async () => {
+          await populateProvinces();
+          await populateProvincialFilter(); // Add provincial filter population
+          
+          if (preselectedProvinceId) {
+              await populateRegencies(preselectedProvinceId);
+          }
+          
+          // Initialize map only when overview tab is active
+          const overviewTab = document.getElementById('overview');
+          if (overviewTab && overviewTab.classList.contains('active')) {
+              initMap();
+          }
+          
+          await loadTrendChart();
+          await renderTopicBubbles(topicEl.value, mapDaysEl.value);
+          
+          // Initialize notification system
+          initNotificationSystem();
+      });
 
      // ============ Notification System ==========
      let notificationCount = 0;
