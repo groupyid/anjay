@@ -722,7 +722,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <script>
-    // Tab functionality
+    // Tab functionality - Optimized
     function showTab(tabName) {
         // Hide all tab contents
         document.querySelectorAll('.tab-content').forEach(tab => {
@@ -740,12 +740,12 @@
         // Add active class to clicked tab
         event.target.classList.add('active');
         
-        // Load content based on tab
+        // Load content based on tab - OPTIMIZED
         if (tabName === 'users') {
-            loadUsers();
-            loadUserStats();
+            // Use Promise.all for parallel loading
+            Promise.all([loadUsers(), loadUserStats()]);
         } else if (tabName === 'analytics') {
-            // Destroy existing charts before loading new ones
+            // Destroy existing charts immediately
             if (registrationChart) {
                 registrationChart.destroy();
                 registrationChart = null;
@@ -755,35 +755,19 @@
                 regionActivityChart = null;
             }
             
-            // Load analytics after a small delay
-            setTimeout(() => {
-                loadAnalytics();
-            }, 200);
+            // Load analytics immediately
+            loadAnalytics();
         } else if (tabName === 'logs') {
             loadSystemLogs();
         } else if (tabName === 'overview') {
-            // Initialize map when switching to overview tab
+            // Initialize map immediately if not exists
             if (!map) {
-                setTimeout(() => {
-                    initMap();
-                    // Load bubbles after map is initialized
-                    setTimeout(() => {
-                        if (map && bubbleLayer) {
-                            renderTopicBubbles(topicEl?.value || '', mapDaysEl?.value || '30');
-                        }
-                    }, 500);
-                }, 100);
+                initMap();
             } else {
-                // Refresh map size if it already exists
-                setTimeout(() => {
-                    if (map) {
-                        map.invalidateSize();
-                        // Refresh bubbles too
-                        setTimeout(() => {
-                            renderTopicBubbles(topicEl?.value || '', mapDaysEl?.value || '30');
-                        }, 200);
-                    }
-                }, 100);
+                // Refresh map size immediately
+                map.invalidateSize();
+                // Refresh bubbles immediately
+                renderTopicBubbles(topicEl?.value || '', mapDaysEl?.value || '30');
             }
         }
     }
@@ -921,21 +905,15 @@
         }, 5000);
     }
 
-         // Analytics Functions
+         // Analytics Functions - Optimized
      async function loadAnalytics() {
          try {
              const response = await fetch('/api/admin/analytics');
              const data = await response.json();
              
-             // Ensure we're on analytics tab before loading charts
-             const analyticsTab = document.getElementById('analytics');
-             if (analyticsTab && analyticsTab.classList.contains('active')) {
-                 // Small delay to ensure DOM is ready
-                 setTimeout(() => {
-                     loadRegistrationChart(data.registration_trend);
-                     loadRegionActivityChart(data.region_activity);
-                 }, 100);
-             }
+             // Load charts immediately without delay
+             loadRegistrationChart(data.registration_trend);
+             loadRegionActivityChart(data.region_activity);
              
              // Update performance metrics
              document.getElementById('avg-response-time').textContent = data.avg_response_time || '-';
@@ -1155,8 +1133,7 @@
 
     async function populateProvinces() {
         try {
-            const res = await fetch('/api/admin/provinces');
-            const json = await res.json();
+            const json = await cachedFetch('/api/admin/provinces');
             const provinces = json.provinces || [];
             for (let i = provinceEl.options.length - 1; i >= 1; i--) provinceEl.remove(i);
             provinces.forEach(p => {
@@ -1290,25 +1267,19 @@
             return;
         }
         
-        // Small delay to ensure container is properly rendered
-        setTimeout(() => {
-            try {
-                map = L.map('map').setView(defaultCenter, 4.5);
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                }).addTo(map);
-                bubbleLayer = L.layerGroup().addTo(map);
-                
-                // Force map resize after initialization
-                setTimeout(() => {
-                    if (map) {
-                        map.invalidateSize();
-                    }
-                }, 100);
-            } catch (error) {
-                console.error('Error initializing map:', error);
-            }
-        }, 100);
+        // Initialize map immediately - no delays
+        try {
+            map = L.map('map').setView(defaultCenter, 4.5);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            }).addTo(map);
+            bubbleLayer = L.layerGroup().addTo(map);
+            
+            // Load bubbles immediately after map creation
+            renderTopicBubbles(topicEl?.value || '', mapDaysEl?.value || '30');
+        } catch (error) {
+            console.error('Error initializing map:', error);
+        }
     }
 
     function radiusFromCount(count) {
@@ -1342,15 +1313,16 @@
                  console.log('No markers found, setting default view');
                  map.setView(defaultCenter, 4.5);
                  
-                 // Show a message on the map
-                 const noDataPopup = L.popup()
-                     .setLatLng(defaultCenter)
-                     .setContent('Tidak ada data untuk filter yang dipilih')
-                     .openOn(map);
-                 
-                 setTimeout(() => {
-                     map.closePopup(noDataPopup);
-                 }, 3000);
+                                   // Show a brief message on the map
+                  const noDataPopup = L.popup()
+                      .setLatLng(defaultCenter)
+                      .setContent('Tidak ada data untuk filter yang dipilih')
+                      .openOn(map);
+                  
+                  // Auto-close popup after 2 seconds instead of 3
+                  setTimeout(() => {
+                      map.closePopup(noDataPopup);
+                  }, 2000);
                  return;
              }
              
@@ -1433,8 +1405,7 @@
     // Provincial Topics Functions
     async function populateProvincialFilter() {
         try {
-            const res = await fetch('/api/admin/provinces');
-            const json = await res.json();
+            const json = await cachedFetch('/api/admin/provinces');
             const provinces = json.provinces || [];
             const provincialFilter = document.getElementById('provincial-topics-filter');
             
@@ -1538,39 +1509,69 @@
         });
     }
 
-                   window.addEventListener('DOMContentLoaded', async () => {
-          await populateProvinces();
-          await populateProvincialFilter(); // Add provincial filter population
-          
-          if (preselectedProvinceId) {
-              await populateRegencies(preselectedProvinceId);
-          }
-          
-          // Initialize map only when overview tab is active
-          const overviewTab = document.getElementById('overview');
-          if (overviewTab && overviewTab.classList.contains('active')) {
-              initMap();
-          }
-          
-          await loadTrendChart();
-          await renderTopicBubbles(topicEl.value, mapDaysEl.value);
-          
-          // Initialize notification system
-          initNotificationSystem();
-      });
+                          // Cache for API responses
+       const apiCache = new Map();
+       const CACHE_DURATION = 30000; // 30 seconds
+
+       // Cached fetch function
+       async function cachedFetch(url) {
+           const now = Date.now();
+           const cached = apiCache.get(url);
+           
+           if (cached && (now - cached.timestamp) < CACHE_DURATION) {
+               return cached.data;
+           }
+           
+           const response = await fetch(url);
+           const data = await response.json();
+           
+           apiCache.set(url, {
+               data: data,
+               timestamp: now
+           });
+           
+           return data;
+       }
+
+       window.addEventListener('DOMContentLoaded', async () => {
+           // Use Promise.all for parallel initialization
+           const initPromises = [
+               populateProvinces(),
+               populateProvincialFilter()
+           ];
+           
+           await Promise.all(initPromises);
+           
+           if (preselectedProvinceId) {
+               await populateRegencies(preselectedProvinceId);
+           }
+           
+           // Initialize map only when overview tab is active
+           const overviewTab = document.getElementById('overview');
+           if (overviewTab && overviewTab.classList.contains('active')) {
+               initMap();
+           }
+           
+           // Load chart and bubbles in parallel
+           Promise.all([
+               loadTrendChart(),
+               renderTopicBubbles(topicEl.value, mapDaysEl.value)
+           ]);
+           
+           // Initialize notification system
+           initNotificationSystem();
+       });
 
      // ============ Notification System ==========
      let notificationCount = 0;
      let notificationsVisible = false;
 
      function initNotificationSystem() {
-         // Check for new activities every 30 seconds
-         setInterval(checkForNewActivities, 30000);
+         // Check for new activities every 60 seconds instead of 30 (reduce load)
+         setInterval(checkForNewActivities, 60000);
          
-         // Show welcome notification
-         setTimeout(() => {
-             showNotification('success', 'Dashboard Ready', 'Admin dashboard loaded successfully!');
-         }, 1000);
+         // Show welcome notification immediately instead of 1 second delay
+         showNotification('success', 'Dashboard Ready', 'Admin dashboard loaded successfully!');
      }
 
      function showNotification(type, title, message, autoHide = true) {
