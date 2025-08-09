@@ -434,6 +434,28 @@ def initialize_rag_system():
         thread_local.initialized = True
         logger.info("✅ Optimized RAG system ready to use.")
 
+def embed_batch(texts: List[str], batch_size: int = 32) -> List[List[float]]:
+    """Standalone function to generate embeddings for a list of texts, suitable for clustering."""
+    all_embeddings = []
+    for i in range(0, len(texts), batch_size):
+        batch = texts[i:i + batch_size]
+        try:
+            # Use a specific task_type for clustering/similarity tasks
+            result = genai.embed_content(
+                model="models/embedding-001",
+                content=batch,
+                task_type="semantic_similarity"
+            )
+            all_embeddings.extend(result['embedding'])
+        except Exception as e:
+            logger.error(f"Error in standalone embed_batch for batch {i//batch_size}: {e}")
+            # Add None placeholders for the failed batch to maintain list size if needed, or handle differently
+            all_embeddings.extend([None] * len(batch))
+    
+    # Filter out any None values from failed batches before returning
+    return [emb for emb in all_embeddings if emb is not None]
+
+
 def get_rag_response(user_question: str, history: List[Dict] = None) -> Tuple[str, List[Dict]]:
     """Get response from optimized RAG system"""
     if not hasattr(thread_local, 'initialized'):

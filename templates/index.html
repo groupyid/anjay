@@ -14,14 +14,14 @@
 </head>
 <body>
     <div class="main-container">
+        <div class="sidebar-overlay"></div>
         <aside class="sidebar">
             <div class="sidebar-header">
-
-                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo PaTani" class="logo">
-                <h1>PaTani</h1>
                 <button class="sidebar-toggle-btn">
                     <i class="fas fa-bars"></i>
                 </button>
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo PaTani" class="logo">
+                <h1>PaTani</h1>
             </div>
             <button id="btn-new-session" class="btn-new-chat">
                 <i class="fas fa-plus"></i>
@@ -54,6 +54,9 @@
 
         <main class="chat-area">
             <header class="chat-header">
+                <button class="sidebar-toggle-btn mobile-toggle">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <div class="chat-header-content">
                     <h2>Penyuluh Pertanian Digital</h2>
                     <p>Tanyakan apapun seputar pertanian kepada asisten AI kami.</p>
@@ -123,28 +126,27 @@
         const newSessionBtn = document.getElementById('btn-new-session');
         const sidebar = document.querySelector('.sidebar');
         const mainContainer = document.querySelector('.main-container');
-        const sidebarToggleBtn = document.querySelector('.sidebar-toggle-btn');
+        const sidebarToggleBtns = document.querySelectorAll('.sidebar-toggle-btn');
+        const sidebarOverlay = document.querySelector('.sidebar-overlay');
 
-        if (sidebarToggleBtn && sidebar) {
-            sidebarToggleBtn.addEventListener('click', () => {
-                const isMobile = window.matchMedia('(max-width: 768px)').matches;
-                if (isMobile) {
+        if (sidebarToggleBtns.length > 0 && sidebar) {
+            sidebarToggleBtns.forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
                     sidebar.classList.toggle('open');
-                    mainContainer.classList.toggle('sidebar-open-overlay');
-                } else {
-                    sidebar.classList.toggle('collapsed');
-                    mainContainer.classList.toggle('sidebar-collapsed');
-                }
+                    mainContainer.classList.toggle('sidebar-open');
+                    sidebarOverlay.style.display = sidebar.classList.contains('open') ? 'block' : 'none';
+                });
             });
         }
 
-        mainContainer.addEventListener('click', (e) => {
-            const isMobile = window.matchMedia('(max-width: 768px)').matches;
-            if (isMobile && sidebar.classList.contains('open') && !sidebar.contains(e.target) && !sidebarToggleBtn.contains(e.target)) {
+        if (sidebarOverlay) {
+            sidebarOverlay.addEventListener('click', () => {
                 sidebar.classList.remove('open');
-                mainContainer.classList.remove('sidebar-open-overlay');
-            }
-        });
+                mainContainer.classList.remove('sidebar-open');
+                sidebarOverlay.style.display = 'none';
+            });
+        }
         
         if (chatMessages) {
             chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -293,6 +295,42 @@
                 container.appendChild(actionBtn);
             });
         }
+
+        // --- Fitur Update Lokasi ---
+        function updateLocation() {
+            if (!navigator.geolocation) {
+                console.log("Geolocation tidak didukung oleh browser Anda.");
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const { latitude, longitude } = position.coords;
+                    fetch('/update_location', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ latitude, longitude })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            console.log('Lokasi berhasil diperbarui.');
+                        } else {
+                            console.error('Gagal memperbarui lokasi:', data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error saat mengirim lokasi ke server:', error);
+                    });
+                },
+                (error) => {
+                    console.error("Error mendapatkan lokasi:", error.message);
+                }
+            );
+        }
+
+        // Panggil fungsi saat halaman dimuat
+        updateLocation();
     });
     </script>
 </body>

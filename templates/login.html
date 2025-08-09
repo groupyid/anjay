@@ -11,8 +11,8 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='login.css') }}">
 </head>
 <body>
-    <div class="login-gede">
-        <div class="logo-container">
+    <div class="login-gede" id="login-wrapper">
+        <div class="logo-container" id="splash-screen">
             <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo PaTani">
             <h1>P A T A N I</h1>
             <p class="paragraf">Platform terpadu untuk para pahlawan agrikultur Indonesia. Dapatkan wawasan, berdiskusi, dan kembangkan pertanian Anda bersama kami.</p>
@@ -27,30 +27,32 @@
                             </div>
                         </div>
                         <div class="swiper-slide">
-                            <div class="prompt-slide">
-                                <div class="category-label">Analisis Data</div>
-                                <p class="text-prompt">"Analisis tren harga jagung di pasar regional selama 3 bulan terakhir."</p>
-                            </div>
+                            <div class="category-label">Analisis Data</div>
+                            <p class="text-prompt">"Analisis tren harga jagung di pasar regional selama 3 bulan terakhir."</p>
                         </div>
                         <div class="swiper-slide">
-                            <div class="prompt-slide">
-                                <div class="category-label">Rekomendasi</div>
-                                <p class="text-prompt">"Rekomendasi pupuk terbaik untuk meningkatkan hasil panen tomat di dataran rendah."</p>
-                            </div>
+                            <div class="category-label">Rekomendasi</div>
+                            <p class="text-prompt">"Rekomendasi pupuk terbaik untuk meningkatkan hasil panen tomat di dataran rendah."</p>
                         </div>
                     </div>
                 </div>
             </div>
+            <button class="btn-lanjut" id="next-button">Lanjutkan</button>
         </div>
-        <div class="container-split">
+        <div class="container-split" id="login-form-container">
             <div class="login-container">
+                <img src="{{ url_for('static', filename='images/logo.png') }}" alt="Logo PaTani" class="login-form-logo">
                 <h2>Login</h2>
                 
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% if messages %}
-                        {% for category, message in messages %}
-                            <div class="alert alert-{{ category }}">{{ message }}</div>
-                        {% endfor %}
+                        <script>
+                            const flashedMessages = [
+                                {% for category, message in messages %}
+                                    { category: "{{ category }}", message: "{{ message }}" },
+                                {% endfor %}
+                            ];
+                        </script>
                     {% endif %}
                 {% endwith %}
 
@@ -70,6 +72,16 @@
         </div>
     </div>
 
+    <!-- The Modal -->
+    <div id="errorModal" class="modal">
+        <!-- Modal content -->
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h2 id="modalTitle">Peringatan!</h2>
+            <p id="modalMessage"></p>
+        </div>
+    </div>
+
     <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
     <script>
         var swiper = new Swiper('.swiper-container', {
@@ -82,6 +94,93 @@
             fadeEffect: {
                 crossFade: true
             },
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const nextButton = document.getElementById('next-button');
+            const splashScreen = document.getElementById('splash-screen');
+            const loginFormContainer = document.getElementById('login-form-container');
+            const loginWrapper = document.getElementById('login-wrapper');
+
+            console.log('DOM Content Loaded.');
+            console.log('nextButton element:', nextButton);
+            if (nextButton) {
+                console.log('nextButton computed style display:', getComputedStyle(nextButton).display);
+                console.log('nextButton computed style pointer-events:', getComputedStyle(nextButton).pointerEvents);
+                console.log('splashScreen computed style display:', getComputedStyle(splashScreen).display);
+                console.log('splashScreen computed style pointer-events:', getComputedStyle(splashScreen).pointerEvents);
+            }
+
+            // Check if there are any flashed messages (e.g., login errors)
+            const hasFlashedMessages = (typeof flashedMessages !== 'undefined' && flashedMessages.length > 0);
+            console.log('hasFlashedMessages (JS):', hasFlashedMessages);
+
+            // Attach event listener to nextButton regardless of screen size
+            if (nextButton) {
+                console.log('Attaching click listener to nextButton.');
+                nextButton.addEventListener('click', function() {
+                    console.log('Next button clicked!');
+                    splashScreen.style.display = 'none';
+                    loginFormContainer.style.display = 'flex';
+                    loginWrapper.style.height = 'auto'; // Allow wrapper to adjust height
+                });
+            } else {
+                console.error('Next button element not found!');
+            }
+
+            // Initial setup based on screen size and flashed messages
+            if (window.innerWidth <= 900) {
+                // Mobile view
+                if (hasFlashedMessages) {
+                    // If there are messages, show login form directly
+                    splashScreen.style.display = 'none';
+                    loginFormContainer.style.display = 'flex';
+                    loginWrapper.style.height = 'auto';
+                    console.log('Mobile: Flashed messages detected. Showing login form.');
+                } else {
+                    // Otherwise, show splash screen first
+                    splashScreen.style.display = 'flex';
+                    loginFormContainer.style.display = 'none';
+                    console.log('Mobile: No flashed messages. Showing splash screen.');
+                }
+            } else {
+                // Desktop view (handled by CSS, just ensure classes are correct if JS overrides)
+                splashScreen.style.display = 'flex';
+                loginFormContainer.style.display = 'flex';
+            }
+
+            console.log('Initial setup complete.');
+            console.log('splashScreen display after setup:', splashScreen.style.display);
+            console.log('loginFormContainer display after setup:', loginFormContainer.style.display);
+
+            // Modal Logic
+            const modal = document.getElementById('errorModal');
+            const modalMessage = document.getElementById('modalMessage');
+            const closeButton = document.querySelector('.close-button');
+
+            if (typeof flashedMessages !== 'undefined' && flashedMessages.length > 0) {
+                // Assuming we only care about the first message for the popup
+                const errorMessage = flashedMessages[0].message;
+                modalMessage.textContent = errorMessage;
+                modal.style.display = 'flex'; // Use flex to center content
+                console.log('Modal displayed.');
+            }
+
+            closeButton.onclick = function() {
+                modal.style.display = 'none';
+                console.log('Modal closed by button.');
+                console.log('splashScreen display after modal close:', splashScreen.style.display);
+                console.log('loginFormContainer display after modal close:', loginFormContainer.style.display);
+            }
+
+            window.onclick = function(event) {
+                if (event.target == modal) {
+                    modal.style.display = 'none';
+                    console.log('Modal closed by clicking outside.');
+                    console.log('splashScreen display after modal close:', splashScreen.style.display);
+                    console.log('loginFormContainer display after modal close:', loginFormContainer.style.display);
+                }
+            }
         });
     </script>
 </body>

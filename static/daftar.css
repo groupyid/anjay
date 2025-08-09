@@ -209,3 +209,17 @@ body {
         grid-column: 1 / 1;
     }
 }
+
+@media (max-width: 480px) {
+    .form-side {
+        padding: 30px;
+    }
+
+    .info-side h1 {
+        font-size: 1.8rem;
+    }
+
+    .info-side p {
+        font-size: 1rem;
+    }
+}

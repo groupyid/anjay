@@ -172,85 +172,64 @@ ul, ol {
     min-width: 150px;
 }
 
-/* === CHART & MAP CONTAINER === */
-.chart-container,
-.map-container {
-    background-color: #f7fafc;
-    border-radius: 10px;
-    padding: 16px;
-    border: 1px solid var(--border-color);
+/* Chart and Map Containers */
+.chart-container {
+    position: relative;
+    height: 350px;
+    width: 100%;
 }
 
-/* static/dashboard.css */
+.map-container {
+    position: relative;
+    height: 400px;
+    width: 100%;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+}
 
 #map {
-    height: 380px; /* Pastikan tinggi ini ada */
+    height: 100%;
     width: 100%;
-    border-radius: 8px;
-    background-color: #eee; /* Tambahkan warna latar untuk melihat area peta */
 }
 
-.map-caption {
-    font-size: 0.9em;
-    color: var(--text-secondary);
-    margin-top: 8px;
-    text-align: center;
+/* === RESPONSIVE STYLES === */
+@media (max-width: 1200px) {
+    .dashboard-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
-/* === INSIGHTS & LISTS === */
-.insight-list {
-    list-style: none;
-    padding: 0;
-    line-height: 1.8;
+@media (max-width: 768px) {
+    body {
+        padding: 16px;
+    }
+
+    .dashboard-header h1 {
+        font-size: 1.8em;
+    }
+
+    .dashboard-header p {
+        font-size: 1em;
+    }
+
+    .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .logout-container {
+        position: static;
+        margin-bottom: 16px;
+        text-align: right;
+    }
 }
 
-.insight-list li {
-    font-size: 1em;
-}
+@media (max-width: 480px) {
+    .card {
+        padding: 16px;
+    }
 
-/* Regional Topics Section */
-.regional-topics-container {
-    background-color: #f7fafc;
-    border-radius: 8px;
-    padding: 16px;
-    max-height: 350px;
-    overflow-y: auto;
-    border: 1px solid var(--border-color);
-}
-
-.regional-topics-container h4 {
-    margin: 0 0 12px 0;
-    color: var(--primary-color);
-    font-size: 1.1em;
-}
-
-.topic-list-card {
-    background: #fff;
-    border-radius: 6px;
-    padding: 16px;
-    border: 1px solid #e9ecef;
-}
-
-.topic-list-card h5 {
-    margin: 0 0 8px 0;
-    color: var(--primary-color);
-}
-
-.topic-list-card ol {
-    margin: 0;
-    padding-left: 20px;
-}
-
-.topic-list-card li {
-    margin-bottom: 6px;
-    font-size: 0.95em;
-}
-
-.topic-list-card .footer-note {
-    margin-top: 12px;
-    padding-top: 8px;
-    border-top: 1px solid var(--border-color);
-    font-size: 0.85em;
-    color: #666;
-    font-style: italic;
+    .filter-group select {
+        width: 100%;
+    }
 }

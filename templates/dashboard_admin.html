@@ -69,6 +69,15 @@
                             <option value="180">180 hari</option>
                         </select>
                     </div>
+                    <div class="filter-group">
+                        <label for="time-range">Waktu</label>
+                        <select id="time-range">
+                            <option value="5_minutes">5 Menit</option>
+                            <option value="4_hours">4 Jam</option>
+                            <option value="1_day">1 Hari</option>
+                            <option value="1_week" selected>1 Minggu</option>
+                        </select>
+                    </div>
                 </div>
 
                 <div class="chart-container">
@@ -79,7 +88,9 @@
                 <div id="statistik-pengguna">
                     <ul class="insight-list">
                         <li>Jumlah pertanyaan minggu ini: <b>{{ jumlah_pertanyaan }}</b></li>
+                        {% if selected_region or selected_province_id %}
                         <li>Wilayah aktif: <b>{{ wilayah_aktif }}</b></li>
+                        {% endif %}
                         <li>Jam aktif tertinggi: <b>{{ jam_aktif_tertinggi or '-' }}</b></li>
                         <li>Rata-rata pertanyaan per user: <b>{{ rata2_pertanyaan_per_user or '-' }}</b></li>
                     </ul>
@@ -114,6 +125,19 @@
                     <p class="map-caption">Titik menampilkan agregasi per wilayah untuk topik terpilih.</p>
                 </div>
 
+                <div id="national-view" class="regional-topics-container">
+                    <h4>🇮🇩 Tren Topik Nasional</h4>
+                    <div class="topic-list-card">
+                        <h5>Topik Terpopuler Secara Nasional:</h5>
+                        <ol>
+                            {% for topic_item in top_topics %}
+                            <li><b>{{ topic_item.name }}</b>: {{ topic_item.count }} pertanyaan</li>
+                            {% endfor %}
+                        </ol>
+                        <div class="footer-note">📊 Data agregat dari seluruh wilayah Indonesia</div>
+                    </div>
+                </div>
+
                 {% if topic_by_region %}
                 <div class="filter-bar" style="margin-top: 16px;">
                     <div class="filter-group">
@@ -128,19 +152,6 @@
                 </div>
 
                 <div id="regional-topics-container" class="regional-topics-container">
-                    <div id="national-view">
-                        <h4>🇮🇩 Tren Topik Nasional</h4>
-                        <div class="topic-list-card">
-                            <h5>Topik Terpopuler Secara Nasional:</h5>
-                            <ol>
-                                {% for topic, count in top_topics %}
-                                <li><b>{{ topic }}</b>: {{ count }} pertanyaan</li>
-                                {% endfor %}
-                            </ol>
-                            <div class="footer-note">📊 Data agregat dari seluruh wilayah Indonesia</div>
-                        </div>
-                    </div>
-                    
                     <div id="single-region-view" style="display:none;">
                         {% for region, topics in topic_by_region.items() %}
                         <div class="single-region-data" data-region="{{ region }}" style="display:none;">
@@ -177,6 +188,7 @@
     const daysEl = document.getElementById('trend-days');
     const provinceEl = document.getElementById('filter-province');
     const regionEl = document.getElementById('admin-region');
+    const timeRangeEl = document.getElementById('time-range'); // New
     const preselectedRegion = "{{ selected_region or '' }}";
     const preselectedProvinceId = "{{ selected_province_id or '' }}";
 
@@ -214,9 +226,10 @@
             const regs = json.regencies || [];
             regs.forEach(r => {
                 const opt = document.createElement('option');
-                opt.value = r.name;
-                opt.textContent = r.name;
-                if (preselectedRegion && preselectedRegion === r.name && String(provinceId) === String(preselectedProvinceId)) {
+                const shortName = r.name.replace(/^KABUPATEN\s+|^KOTA\s+/, '');
+                opt.value = shortName;
+                opt.textContent = shortName;
+                if (preselectedRegion && preselectedRegion === shortName && String(provinceId) === String(preselectedProvinceId)) {
                     opt.selected = true;
                 }
                 regionEl.appendChild(opt);
@@ -232,7 +245,8 @@
             const days = document.getElementById('trend-days').value;
             const region = document.getElementById('admin-region').value;
             const provinceId = document.getElementById('filter-province').value;
-            const params = new URLSearchParams({ period, days, region, province_id: provinceId });
+            const timeRange = timeRangeEl.value; // Get time range
+            const params = new URLSearchParams({ period, days, region, province_id: provinceId, time_range: timeRange }); // Add time_range
             const res = await fetch(`/api/admin/trends?${params.toString()}`);
             const data = await res.json();
             const total = (data.matrix || []).reduce((sum, row) => sum + row.reduce((a,b)=>a+b,0), 0);
@@ -247,7 +261,8 @@
              const days = daysEl.value;
              const region = regionEl.value;
              const provinceId = provinceEl.value;
-             const params = new URLSearchParams({ period, days, region, province_id: provinceId });
+             const timeRange = timeRangeEl.value; // Get time range
+             const params = new URLSearchParams({ period, days, region, province_id: provinceId, time_range: timeRange }); // Add time_range
              const res = await fetch(`/api/admin/trends?${params.toString()}`);
              if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
              const data = await res.json();
@@ -310,34 +325,13 @@
     let bubbleLayer = null;
 
 function initMap() {
-    // Cek jika peta sudah diinisialisasi, hapus dulu untuk menghindari duplikasi
-    if (map != null) {
-        map.remove();
-        map = null;
-    }
-
-    // Pastikan elemen #map ada sebelum membuat peta
-    const mapElement = document.getElementById('map');
-    if (!mapElement) {
-        console.error("Elemen #map tidak ditemukan!");
+    if (map) {
         return;
     }
-
-    // Inisialisasi peta
     map = L.map('map').setView(defaultCenter, 4.5);
-
-    // Gunakan tile layer dari OpenStreetMap yang lebih umum dan gratis
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        maxZoom: 19
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
-
-    // Tambahkan error handling jika tile layer gagal dimuat
-    map.on('tileerror', function(error, tile) {
-        console.error('TileLayer error:', error);
-    });
-
-    // Inisialisasi layer untuk bubble
     bubbleLayer = L.layerGroup().addTo(map);
 }
 
@@ -349,8 +343,9 @@ function initMap() {
         bubbleLayer.clearLayers();
         const region = regionEl.value;
         const provinceId = provinceEl.value;
+        const timeRange = timeRangeEl.value; // Get time range
         const topicParam = topic || '';
-        const params = new URLSearchParams({ topic: topicParam, days, region, province_id: provinceId });
+        const params = new URLSearchParams({ topic: topicParam, days, region, province_id: provinceId, time_range: timeRange }); // Add time_range
         
         try {
             const res = await fetch(`/api/admin/topic-distribution?${params.toString()}`);
@@ -371,7 +366,7 @@ function initMap() {
                     fillColor: 'var(--primary-light)',
                     fillOpacity: 0.7,
                     weight: 1.5
-                }).bindPopup(`<b>${m.region}</b><br>Topik: ${topic || 'Semua'}<br>Jumlah: <b>${m.count}</b>`);
+                }).bindPopup(`<b>${m.region}</b><br>Topik: ${m.topic || 'Semua'}<br>Jumlah: <b>${m.count}</b>`);
                 circle.addTo(bubbleLayer);
                 bounds.push([m.lat, m.lon]);
             });
@@ -422,6 +417,10 @@ function initMap() {
     
     addDebouncedListener(topicEl, 'change', () => renderTopicBubbles(topicEl.value, mapDaysEl.value), 200);
     addDebouncedListener(mapDaysEl, 'change', () => renderTopicBubbles(topicEl.value, mapDaysEl.value), 200);
+    addDebouncedListener(timeRangeEl, 'change', async () => { // New
+        await loadTrendChart();
+        await renderTopicBubbles(topicEl.value, mapDaysEl.value);
+    }, 200);
 
 const regionalFilterElement = document.getElementById('regional-filter');
 

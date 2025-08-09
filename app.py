@@ -4,6 +4,8 @@ from flask_sqlalchemy import SQLAlchemy
 from routes.routes import register_routes
 from routes.rag_core import initialize_rag_system
 from routes.config import SECRET_KEY, SQLALCHEMY_DATABASE_URI, SQLALCHEMY_TRACK_MODIFICATIONS
+from flask_migrate import Migrate
+from routes.models import db
 
 # Route untuk serve file jurnal_ilmiah secara eksplisit (setelah app didefinisikan)
 from flask import send_from_directory
@@ -12,6 +14,8 @@ import os
 
 # --- Inisialisasi Aplikasi ---
 app = Flask(__name__)
+
+migrate = Migrate(app, db)
 
 # --- Konfigurasi Aplikasi ---
 app.config['SECRET_KEY'] = SECRET_KEY
@@ -46,4 +50,4 @@ with app.app_context():
 
 # --- Jalankan Aplikasi ---
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=True, port=5002)

@@ -15,7 +15,9 @@ with app.app_context():
         phone='081234567890',  # Ganti dengan nomor telepon yang sesuai
         password=hashed_password,
         role='admin',
-        region='Aceh'
+        region='Aceh',
+        latitude=-6.2088,
+        longitude=106.8456
     )
 
     # Tambahkan ke database

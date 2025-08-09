@@ -1,4 +1,3 @@
-
 :root {
     --green-accent: #00C676;
     --green-deep: #007E53;
@@ -16,7 +15,6 @@
 
 body {
     font-family: 'Inter', sans-serif;
-    /* background-color: var(--light-bg); */
     background-image: url("/static/images/bgls4.jpg");
     background-size: cover;
     background-position: center;
@@ -24,8 +22,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
-    height: 100vh;
-    overflow: hidden;
+    min-height: 100vh;
     color: var(--text-dark);
     position: relative;
 }
@@ -37,7 +34,6 @@ body {
     width: 90%;
     height: 90%;
     border-radius: 16px;
-    overflow: hidden;
     box-shadow: 0 12px 30px rgba(0, 0, 0, 0.05);
     backdrop-filter: blur(6px);
 }
@@ -45,12 +41,12 @@ body {
 .container-split {
     width: 50%;
     height: 100%;
-    display: flex; /* Mengubah menjadi flex container */
+    /* display: flex; */ /* REMOVED */
     align-items: center;
-    justify-content: space-evenly; /* Menyesuaikan jarak antar elemen */
+    justify-content: space-evenly;
     background: rgba(255, 255, 255, 0.5);
     backdrop-filter: blur(12px);
-    padding: 20px; /* Tambahkan padding untuk ruang */
+    padding: 20px;
 }
 
 .login-container {
@@ -60,18 +56,31 @@ body {
     box-shadow: 0px 6px 24px rgba(0, 198, 118, 0.12);
     width: 420px;
     max-width: 90%;
-    height: fit-content; /* Sesuaikan tinggi */
+    height: fit-content;
     animation: fadeIn 0.5s ease-in-out;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.login-form-logo {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 20px;
+    object-fit: cover;
+    border-radius: 50%;
+    background-color: white;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08);
 }
 
 .login-options {
     background: var(--card-bg);
-    border-radius: 12px 32px 12px 32px; /* Mirroring login-container border-radius */
+    border-radius: 12px 32px 12px 32px;
     padding: 40px;
     box-shadow: 0px 6px 24px rgba(0, 198, 118, 0.12);
     width: 420px;
     max-width: 90%;
-    height: fit-content; /* Sesuaikan tinggi */
+    height: fit-content;
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -106,20 +115,20 @@ body {
     gap: 16px;
     padding: 20px;
     border-radius: 12px;
-    border: 2px solid #ccc; /* Menggunakan warna border netral */
-    background-color: #f0f0f0; /* Warna latar belakang netral */
+    border: 2px solid #ccc;
+    background-color: #f0f0f0;
     font-size: 1.2rem;
     font-weight: 600;
     color: var(--text-dark);
     cursor: pointer;
     transition: all 0.3s ease;
     box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    text-decoration: none; /* Penting untuk tautan */
+    text-decoration: none;
 }
 
 .login-options .main-option-button:hover {
     border-color: var(--green-accent);
-    background-color: rgba(0, 198, 118, 0.1); /* Warna latar belakang hover */
+    background-color: rgba(0, 198, 118, 0.1);
     color: var(--green-deep);
     transform: translateY(-3px);
     box-shadow: 0 6px 12px rgba(0,0,0,0.1);
@@ -137,7 +146,6 @@ body {
 }
 
 .btn-masuk{
-    /* border-style: solid; */
     margin-top: 15px;
 }
 
@@ -218,14 +226,14 @@ button:hover {
 
 .logo-container {
     width: 50%;
-    height: 100%;
+    height: auto; /* Changed from 100% */
     background-color: rgba(255,255,255,0.75);
-    display: flex;
+    /* display: flex; */ /* REMOVED */
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    /* padding: 2rem; */
     text-align: center;
+    pointer-events: auto; /* Ensure it's interactive */
 }
 
 .logo-container img {
@@ -254,39 +262,31 @@ button:hover {
 }
 
 /* Carousel Styles */
-/* === Gaya Carousel Baru === */
-
 .prompt-carousel {
     width: 90%;
-    /* border-style: solid; */
-    border-radius: 16px; /* Sudut lebih tumpul */
-    max-width: 500px; /* Sedikit lebih lebar untuk tampilan lebih baik */
-    margin-top: 2rem; /* Beri jarak dari paragraf di atasnya */
+    border-radius: 16px;
+    max-width: 500px;
+    margin-top: 2rem;
+    margin-bottom: 40px; /* Added more space below carousel */
 }
 
-/* Menghilangkan text-shadow dari wrapper Swiper jika ada */
 .swiper-slide {
     text-shadow: none;
-    border-radius: 16px; /* Sudut lebih tumpul */
-    /* border-style: solid; */
+    border-radius: 16px;
 }
 
 .prompt-slide {
-    /* Menggunakan efek kaca yang lebih subtil */
     background: rgba(255, 255, 255, 0.4); 
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
-
-    /* Border tipis untuk definisi */
     border: 1px solid rgba(255, 255, 255, 0.5);
-    border-radius: 16px; /* Sudut lebih tumpul */
-    
+    border-radius: 16px;
     padding: 20px;
-    height: 140px; /* Sedikit lebih tinggi */
+    height: 140px;
     text-align: left;
     display: flex;
     flex-direction: column;
-    justify-content: flex-start; /* Konten mulai dari atas */
+    justify-content: flex-start;
     transition: all 0.3s ease;
 }
 
@@ -296,21 +296,21 @@ button:hover {
 }
 
 .category-label {
-    background: var(--green-accent); /* Menggunakan variabel warna asli Anda */
+    background: var(--green-accent);
     color: white;
-    padding: 5px 14px; /* Sedikit lebih besar */
+    padding: 5px 14px;
     border-radius: 20px;
     font-size: 0.85rem;
     font-weight: 600;
-    display: inline-block; /* Agar background pas dengan teks */
+    display: inline-block;
     width: fit-content;
-    margin-bottom: 12px; /* Jarak ke teks prompt */
+    margin-bottom: 12px;
 }
 
 .text-prompt {
-    color: var(--text-dark); /* Menggunakan variabel warna asli Anda */
-    font-size: 1rem; /* Sedikit lebih besar agar mudah dibaca */
-    font-weight: 500; /* Sedikit lebih tebal */
+    color: var(--text-dark);
+    font-size: 1rem;
+    font-weight: 500;
     line-height: 1.5;
     margin: 0;
 }
@@ -320,18 +320,68 @@ button:hover {
     to   { opacity: 1; transform: translateY(0); }
 }
 
+.btn-lanjut {
+    background-color: var(--green-accent);
+    color: white;
+    padding: 12px 24px;
+    border: none;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 12px rgba(0, 198, 118, 0.2);
+    margin-top: 20px;
+    display: none; /* Hidden by default, shown on mobile via media query */
+    position: relative; /* Ensure z-index works */
+    z-index: 10; /* Bring button to front */
+    pointer-events: auto; /* Ensure it's interactive */
+}
+
+.btn-lanjut:hover {
+    background-color: var(--green-deep);
+    box-shadow: 0 0 20px rgba(0, 198, 118, 0.3);
+}
+
+/* Consolidated Media Query for Mobile */
 @media (max-width: 900px) {
+    body {
+        align-items: flex-start;
+        height: auto;
+        min-height: 100vh;
+        padding: 20px 0;
+        overflow-y: auto;
+    }
+
     .login-gede {
         flex-direction: column;
         width: 95%;
         height: auto;
+        padding: 2rem 0;
     }
 
-    .logo-container,
+    .logo-container {
+        width: 100%;
+        height: auto;
+        padding: 2rem 1rem;
+        display: flex; /* Ensure splash screen is flex on mobile */
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+    }
+
     .container-split {
         width: 100%;
         height: auto;
         padding: 2rem 1rem;
+        /* display: flex; */ /* REMOVED - will be handled by JS adding visible-flex */
+    }
+
+    #login-form-container {
+        /* display: none; */ /* Handled by default state */
+    }
+
+    .btn-lanjut {
+        display: block; /* Show continue button on mobile */
     }
 
     .paragraf {
@@ -352,4 +402,91 @@ button:hover {
     .text-prompt {
         font-size: 0.85rem;
     }
+
+    .login-container {
+        padding: 25px;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+}
+
+/* Desktop Media Query (show both side-by-side) */
+@media (min-width: 901px) {
+    .login-gede {
+        flex-direction: row; /* Side-by-side */
+    }
+
+    .logo-container {
+        display: flex; /* Ensure visible */
+    }
+
+    #login-form-container {
+        display: flex; /* Ensure visible */
+    }
+
+    .btn-lanjut {
+        display: none; /* Hide on desktop */
+    }
+}
+
+/* Modal Styles */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 100; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: auto; /* Center the modal */
+    padding: 30px; /* Increased padding */
+    border: none; /* Removed border */
+    border-radius: 12px; /* More rounded corners */
+    box-shadow: 0 8px 24px rgba(0,0,0,0.2); /* Stronger shadow */
+    width: 90%; /* Responsive width */
+    max-width: 450px; /* Max width */
+    position: relative;
+    text-align: center;
+    display: flex; /* Use flex for internal alignment */
+    flex-direction: column;
+    gap: 15px; /* Space between elements */
+}
+
+.modal-content h2 {
+    font-size: 1.8rem; /* Larger title */
+    color: var(--green-deep); /* Green color */
+    margin-bottom: 10px;
+}
+
+.modal-content p {
+    font-size: 1.1rem;
+    color: var(--text-dark);
+    line-height: 1.5;
+}
+
+.close-button {
+    color: #888; /* Softer color */
+    font-size: 32px; /* Larger icon */
+    font-weight: normal; /* Normal weight */
+    position: absolute;
+    right: 15px;
+    top: 10px;
+    cursor: pointer;
+    transition: color 0.3s ease;
+}
+
+.close-button:hover,
+.close-button:focus {
+    color: var(--green-deep); /* Green on hover */
+    text-decoration: none;
 }

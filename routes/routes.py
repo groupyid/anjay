@@ -1,4 +1,5 @@
 from flask import request, render_template, jsonify, session, redirect, url_for
+import requests
 from werkzeug.security import check_password_hash, generate_password_hash
 import logging
 from .models import db, User
@@ -21,7 +22,7 @@ def _normalize_text(text):
 STOPWORDS = set([
     'dan','atau','yang','di','ke','dari','untuk','pada','dengan','apa','bagaimana','adalah','saya','ini','itu',
     'the','of','in','to','a','is','are','it','as','by','an','be','on','for','was','were','has','have','had','will','can',
-    'petani','chatbot','tolong','mohon','apakah','seperti','agar','yang','jika','bila','dapat','bisa','cara'
+    'petani','chatbot','tolong','mohon','apakah','seperti','agar','yang','jika','bila','dapat','bisa','cara','jelaskan','lebih', 'lanjut', 'pak', 'bu', 'berapa', 'tanam', 'jenis', 'pentingnya', 'saja'
 ])
 
 # Some phrase starters to avoid as topics
@@ -68,7 +69,6 @@ def extract_best_phrase(text, global_phrase_counts=None):
         if w not in STOPWORDS and len(w) > 2 and w not in _AVOID_START:
             return w
     return '-'
-
 
 
 def from_json_filter(value):
@@ -143,6 +143,7 @@ def register_routes(app):
         if 'user_id' not in session or session.get('user_role') != 'admin':
             return redirect(url_for('login'))
         from .models import ChatHistory, User, Region, Province, Regency
+        from .topic_modeling import find_topic_clusters
         from sqlalchemy import func
         from datetime import datetime, timedelta
         import collections, re
@@ -156,11 +157,16 @@ def register_routes(app):
         province_obj = None
         if selected_region and not selected_province_id:
             # infer province from regency name for UI selection
-            reg_obj = Regency.query.filter(Regency.name == selected_region).first()
+            # This part might need adjustment if region names are now short
+            reg_obj = Regency.query.filter(func.upper(Regency.name).like(f'%__{selected_region.upper()}%')).first()
             if reg_obj:
                 selected_province_id = str(reg_obj.province_id)
         if selected_province_id:
-            province_obj = Province.query.get(int(selected_province_id))
+            try:
+                province_obj = Province.query.get(int(selected_province_id))
+            except (ValueError, TypeError):
+                province_obj = None
+
 
         # Ensure regencies exist for selected province (auto-seed on demand)
         if selected_province_id:
@@ -197,73 +203,104 @@ def register_routes(app):
                 # silently ignore, UI will show empty list
 
         # apply filters
+        query = ChatHistory.query.join(User, ChatHistory.user_id == User.id).filter(ChatHistory.created_at >= week_ago)
         if selected_region:
-            chats = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
-                .filter(ChatHistory.created_at >= week_ago, User.region == selected_region).all()
+            query = query.filter(func.upper(User.region) == func.upper(selected_region))
         elif selected_province_id:
-            # Use the same robust strategy as in API endpoints
             try:
                 pid_int = int(selected_province_id)
-                regency_names = [r.name for r in Regency.query.filter_by(province_id=pid_int).all()]
-                
-                if regency_names:
-                    chats = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
-                        .filter(ChatHistory.created_at >= week_ago, User.region.in_(regency_names)).all()
-                else:
-                    # Fallback with province name
-                    province = Province.query.get(pid_int)
-                    if province:
-                        province_name = province.name.lower()
-                        chats = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
-                            .filter(ChatHistory.created_at >= week_ago) \
-                            .filter(db.func.lower(User.region).contains(province_name)).all()
-                    else:
-                        chats = []
-            except ValueError:
-                chats = []
-        else:
-            chats = ChatHistory.query.filter(ChatHistory.created_at >= week_ago).all()
+                # Get short names for regencies
+                regency_full_names = [r.name for r in Regency.query.filter_by(province_id=pid_int).all()]
+                regency_short_names = [name.replace('KABUPATEN ', '').replace('KOTA ', '') for name in regency_full_names]
+                if regency_short_names:
+                    query = query.filter(User.region.in_(regency_short_names))
+            except (ValueError, TypeError):
+                pass # Ignore if province_id is invalid
+        
+        chats = query.all()
 
         jumlah_pertanyaan = len(chats)
 
-        # Build phrase counts over last week
+        # --- Topic Modeling and Filtering ---
+        # Get time range from request
+        time_range = request.args.get('time_range', '1_week') # Default to 1 week
+
+        # Calculate start_time based on time_range
+        if time_range == '5_minutes':
+            start_time_filter = now - timedelta(minutes=5)
+        elif time_range == '4_hours':
+            start_time_filter = now - timedelta(hours=4)
+        elif time_range == '1_day':
+            start_time_filter = now - timedelta(days=1)
+        else: # '1_week'
+            start_time_filter = now - timedelta(weeks=1)
+
+        # Apply filters to chats
+        query_topics = ChatHistory.query.join(User, ChatHistory.user_id == User.id).filter(ChatHistory.created_at >= start_time_filter)
+        if selected_region:
+            query_topics = query_topics.filter(func.upper(User.region) == func.upper(selected_region))
+        elif selected_province_id:
+            try:
+                pid_int = int(selected_province_id)
+                regency_full_names = [r.name for r in Regency.query.filter_by(province_id=pid_int).all()]
+                regency_short_names = [name.replace('KABUPATEN ', '').replace('KOTA ', '') for name in regency_full_names]
+                if regency_short_names:
+                    query_topics = query_topics.filter(User.region.in_(regency_short_names))
+            except (ValueError, TypeError):
+                pass # Ignore if province_id is invalid
+        
+        filtered_chats = query_topics.all()
+
+        # Compute phrase counts and top topics
         phrase_counter = _collections.Counter()
-        for c in chats:
-            phrase_counter.update(extract_phrases(c.question))
-        # fallback: if no phrases at all, use keywords excluding stopwords
-        if not phrase_counter:
-            all_questions = ' '.join([c.question or '' for c in chats]).lower()
-            keywords = re.findall(r'\b\w+\b', all_questions)
-            keywords = [w for w in keywords if w not in STOPWORDS and len(w) > 2]
-            phrase_counter = _collections.Counter(keywords)
-        top_topics = phrase_counter.most_common(5)
+        if filtered_chats:
+            questions = [c.question for c in filtered_chats if c.question]
+            # Try clustering first
+            clustered_topics = find_topic_clusters(questions, min_cluster_size=2) # Using min_cluster_size=2 as agreed
+            
+            if clustered_topics:
+                top_topics = clustered_topics
+            else:
+                # Fallback to old method if clustering fails or not enough data
+                for c in filtered_chats:
+                    phrase_counter.update(extract_phrases(c.question))
+                if not phrase_counter:
+                    all_questions = ' '.join([c.question or '' for c in filtered_chats]).lower()
+                    keywords = _re.findall(r"\b\w+\b", all_questions)
+                    keywords = [w for w in keywords if w not in STOPWORDS and len(w) > 2]
+                    phrase_counter = _collections.Counter(keywords)
+
+                # Convert old format to new format for compatibility
+                top_topics_raw = phrase_counter.most_common(5)
+                top_topics = [{'name': name, 'count': count} for name, count in top_topics_raw]
+        else:
+            top_topics = [] # Ensure top_topics is initialized even if no chats
+
+        all_topics = [t['name'] for t in top_topics] # For filter dropdowns
+
+        
+
+        
+
+        
+
+        
 
         # All chats for table (join user) - moved up before usage
         user_map = {u.id: u for u in User.query.all()}
 
-        # Generate topic breakdown by region
-        topic_by_region = {}
-        for c in chats:
-            user = user_map.get(c.user_id)
-            if not user or not user.region:
-                continue
-            
-            # Extract topics from this chat
-            chat_phrases = extract_phrases(c.question)
-            for phrase in chat_phrases:
-                if phrase_counter.get(phrase, 0) >= 1:  # Only include phrases that appear in top topics
-                    region = user.region
-                    if region not in topic_by_region:
-                        topic_by_region[region] = _collections.Counter()
-                    topic_by_region[region][phrase] += 1
+        # Generate topic breakdown by region (This part needs to be adapted for new topics)
+        # For now, this will be empty as it depends on the old phrase_counter
 
         # All region & topic for filter (union Region master + user regions)
         user_regions = [u.region for u in User.query.filter(User.region != None).with_entities(User.region).all()]
         master_regions = [r.name for r in Region.query.order_by(Region.name.asc()).all()]
         all_regions = sorted(set([r for r in user_regions if r] + master_regions))
-        all_topics = [t for t, _ in phrase_counter.most_common(15)]
-
+        
+        # This part needs to be adapted for new topics
         def extract_topik(q):
+            # This is a placeholder; a better approach would be to classify a new question
+            # into one of the existing topic clusters.
             return extract_best_phrase(q, global_phrase_counts=phrase_counter)
 
         all_chats = [
@@ -314,6 +351,8 @@ def register_routes(app):
                     'chat_count': v['count']
                 })
 
+        
+        topic_by_region = [] # Placeholder to resolve NameError
         return render_template('dashboard_admin.html',
             user=session.get('user_name'),
             jumlah_pertanyaan=jumlah_pertanyaan,
@@ -334,6 +373,8 @@ def register_routes(app):
 
     @app.route('/login', methods=['GET', 'POST'])
     def login():
+        print("DEBUG: Login route accessed.")
+        print(f"DEBUG: Session before processing: {session}")
         if 'user_id' in session:
             if session.get('user_role') == 'admin':
                 return redirect(url_for('dashboard_admin'))
@@ -348,13 +389,19 @@ def register_routes(app):
                 session['is_admin'] = user.role == 'admin'
                 session['user_role'] = user.role
                 session['admin_region'] = user.region
+                print(f"DEBUG: Login successful. Session after login: {session}")
                 if user.role == 'admin':
                     return redirect(url_for('dashboard_admin'))
                 else:
                     session_id = str(uuid4())
                     return redirect(url_for('index', session=session_id))
             else:
-                return render_template('login.html', error="Email atau password salah.")
+                print("DEBUG: Login failed. Flashing error message.")
+                from flask import flash
+                flash("Email atau password salah.", "error")
+                print(f"DEBUG: Session after flash: {session}")
+                return redirect(url_for('login'))
+        print(f"DEBUG: Session before rendering login.html (GET request): {session}")
         return render_template('login.html')
 
     @app.route('/daftar', methods=['GET', 'POST'])
@@ -378,6 +425,60 @@ def register_routes(app):
             db.session.commit()
             return redirect(url_for('login'))
         return render_template('daftar.html')
+
+    @app.route('/update_location', methods=['POST'])
+    def update_location():
+        if 'user_id' not in session:
+            return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
+        
+        data = request.get_json()
+        if not data or 'latitude' not in data or 'longitude' not in data:
+            return jsonify({'status': 'error', 'message': 'Invalid location data'}), 400
+            
+        user = User.query.get(session['user_id'])
+        if user:
+            try:
+                lat = float(data['latitude'])
+                lon = float(data['longitude'])
+                user.latitude = lat
+                user.longitude = lon
+
+                # Reverse Geocoding using OpenStreetMap
+                try:
+                    headers = {'User-Agent': 'PaTaniApp/1.0'}
+                    url = f"https://nominatim.openstreetmap.org/reverse?format=json&lat={lat}&lon={lon}&accept-language=id"
+                    response = requests.get(url, headers=headers, timeout=10)
+                    response.raise_for_status() # Raise an exception for bad status codes
+                    geo_data = response.json()
+                    
+                    if 'address' in geo_data:
+                        # Prioritaskan 'county', fallback ke 'city', lalu 'state_district'
+                        kabupaten = geo_data['address'].get('county')
+                        if not kabupaten:
+                            kabupaten = geo_data['address'].get('city')
+                        if not kabupaten:
+                            kabupaten = geo_data['address'].get('state_district')
+                        
+                        if kabupaten:
+                            user.region = kabupaten.upper() # Simpan dalam format kapital
+
+                except requests.exceptions.RequestException as e:
+                    logging.warning(f"Reverse geocoding failed: {e}")
+                except Exception as e:
+                    logging.error(f"An unexpected error occurred during geocoding: {e}")
+
+                db.session.commit()
+                return jsonify({'status': 'success'})
+
+            except (ValueError, TypeError):
+                db.session.rollback()
+                return jsonify({'status': 'error', 'message': 'Invalid coordinate format'}), 400
+            except Exception as e:
+                db.session.rollback()
+                logging.error(f"Error updating location for user {user.id}: {e}")
+                return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+
+        return jsonify({'status': 'error', 'message': 'User not found'}), 404
 
     @app.route('/logout')
     def logout():
@@ -671,13 +772,7 @@ def register_routes(app):
         from datetime import timedelta
         import collections, re
 
-        period = request.args.get('period', 'week').lower()  # day|week|month
-        if period not in {'day', 'week', 'month'}:
-            period = 'week'
-        try:
-            days = int(request.args.get('days', '90'))
-        except Exception:
-            days = 90
+        time_filter = request.args.get('time_filter', '1_week').lower() # 15_minutes|4_hours|1_day|1_week|1_month|all_time
         try:
             top_k = int(request.args.get('top_k', '5'))
         except Exception:
@@ -720,10 +815,24 @@ def register_routes(app):
                 # ignore
 
         now = datetime.utcnow()
-        start_time = now - timedelta(days=days)
+        start_time = None
+        if time_filter == '15_minutes':
+            start_time = now - timedelta(minutes=15)
+        elif time_filter == '4_hours':
+            start_time = now - timedelta(hours=4)
+        elif time_filter == '1_day':
+            start_time = now - timedelta(days=1)
+        elif time_filter == '1_week':
+            start_time = now - timedelta(weeks=1)
+        elif time_filter == '1_month':
+            start_time = now - timedelta(days=30) # Approximate for a month
+        # If time_filter is 'all_time', start_time remains None
+        query = ChatHistory.query.join(User, ChatHistory.user_id == User.id)
+        if start_time:
+            query = query.filter(ChatHistory.created_at >= start_time)
+
         if region_filter:
-            chats = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
-                .filter(ChatHistory.created_at >= start_time, User.region == region_filter).all()
+            query = query.filter(User.region == region_filter)
         elif province_id:
             # Get all regency names for the selected province
             try:
@@ -737,44 +846,44 @@ def register_routes(app):
                 
                 if regency_names:
                     # Strategy 1: Exact match with regency names
-                    chats = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
-                        .filter(ChatHistory.created_at >= start_time, User.region.in_(regency_names)).all()
-                    print(f"DEBUG: Found {len(chats)} chats with exact regency match")
+                    query = query.filter(User.region.in_(regency_names))
+                    print(f"DEBUG: Found {query.count()} chats with exact regency match")
                     
                     # Strategy 2: If no exact match, try fuzzy matching with province name
-                    if len(chats) == 0:
+                    if query.count() == 0:
                         province = Province.query.get(pid_int)
                         if province:
                             province_name = province.name.lower()
                             # Find users whose region contains province name (fuzzy match)
-                            fuzzy_chats = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
-                                .filter(ChatHistory.created_at >= start_time) \
-                                .filter(db.func.lower(User.region).contains(province_name)).all()
-                            chats = fuzzy_chats
-                            print(f"DEBUG: Fuzzy match found {len(chats)} chats for province '{province_name}'")
+                            query = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
+                                .filter(db.func.lower(User.region).contains(province_name))
+                            if start_time:
+                                query = query.filter(ChatHistory.created_at >= start_time)
+                            print(f"DEBUG: Fuzzy match found {query.count()} chats for province '{province_name}'")
                 else:
                     # If no regencies found, try fallback with province name directly
                     province = Province.query.get(pid_int)
                     if province:
                         province_name = province.name.lower()
                         # Try to find users with region containing province name
-                        chats = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
-                            .filter(ChatHistory.created_at >= start_time) \
-                            .filter(db.func.lower(User.region).contains(province_name)).all()
-                        print(f"DEBUG: Fallback strategy found {len(chats)} chats for province '{province_name}'")
+                        query = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
+                            .filter(db.func.lower(User.region).contains(province_name))
+                        if start_time:
+                            query = query.filter(ChatHistory.created_at >= start_time)
+                        print(f"DEBUG: Fallback strategy found {query.count()} chats for province '{province_name}'")
                     else:
-                        chats = []
+                        query = query.filter(False) # No results
                         print(f"DEBUG: No regencies and no province found for ID {province_id}")
             except ValueError:
                 # Invalid province_id, return empty result
-                chats = []
+                query = query.filter(False) # No results
                 print(f"DEBUG: Invalid province_id: {province_id}")
             except Exception as e:
                 # Handle any other database errors
-                chats = []
+                query = query.filter(False) # No results
                 print(f"DEBUG: Database error for province_id {province_id}: {str(e)}")
-        else:
-            chats = ChatHistory.query.filter(ChatHistory.created_at >= start_time).all()
+        
+        chats = query.all()
 
         # Compute phrase counts across chats and choose a best phrase per chat
         phrase_counts = _collections.Counter()
@@ -785,21 +894,45 @@ def register_routes(app):
         # Fallback to keywords when phrase extraction yields nothing
         if not phrase_counts:
             all_questions = ' '.join([(c.question or '') for c in chats]).lower()
-            keywords = re.findall(r'\b\w+\b', all_questions)
+            keywords = _re.findall(r"\b\w+\b", all_questions)
             keywords = [w for w in keywords if w not in STOPWORDS and len(w) > 2]
             phrase_counts = _collections.Counter(keywords)
         for c in chats:
             chat_best_phrase[c.id] = extract_best_phrase(c.question, global_phrase_counts=phrase_counts)
 
         def bucket_start(dt):
-            if period == 'day':
+            if time_filter == '15_minutes':
+                # Round down to the nearest 15 minutes
+                minute = (dt.minute // 15) * 15
+                return datetime(dt.year, dt.month, dt.day, dt.hour, minute)
+            if time_filter == '4_hours':
+                # Round down to the nearest 4 hours
+                hour = (dt.hour // 4) * 4
+                return datetime(dt.year, dt.month, dt.day, dt.hour, hour)
+            if time_filter == '1_day':
                 return datetime(dt.year, dt.month, dt.day)
-            if period == 'week':
+            if time_filter == '1_week':
                 # set to Monday 00:00
                 monday = dt - timedelta(days=dt.weekday())
                 return datetime(monday.year, monday.month, monday.day)
-            # month
-            return datetime(dt.year, dt.month, 1)
+            if time_filter == '1_month':
+                return datetime(dt.year, dt.month, 1)
+            # all_time or fallback
+            return datetime(dt.year, dt.month, dt.day)
+
+        def next_bucket(dt, time_filter):
+            if time_filter == '15_minutes':
+                return dt + timedelta(minutes=15)
+            elif time_filter == '4_hours':
+                return dt + timedelta(hours=4)
+            elif time_filter == '1_day':
+                return dt + timedelta(days=1)
+            elif time_filter == '1_week':
+                return dt + timedelta(weeks=7) # Add 7 days for a week
+            elif time_filter == '1_month':
+                # For month, add 30 days as an approximation, or use more complex date logic
+                return dt + timedelta(days=30)
+            return dt + timedelta(days=1) # Default to 1 day
 
         # Aggregate counts
         totals_by_topic = collections.Counter()
@@ -819,23 +952,16 @@ def register_routes(app):
         # Build sorted bucket labels
         labels = sorted(counts.keys())
         # Ensure continuous buckets and also build when no data
-        def next_bucket(d):
-            if period == 'day':
-                return d + timedelta(days=1)
-            if period == 'week':
-                return d + timedelta(days=7)
-            # month increment
-            year = d.year + (1 if d.month == 12 else 0)
-            month = 1 if d.month == 12 else d.month + 1
-            return datetime(year, month, 1)
         if labels:
             filled = []
             cursor = labels[0]
             last = labels[-1]
             while cursor <= last:
                 filled.append(cursor)
-                cursor = next_bucket(cursor)
+                cursor = next_bucket(cursor, time_filter)
             labels = filled
+        elif time_filter == 'all_time':
+            labels = [datetime.min] # A single bucket for all time
         else:
             # No data: still generate timeline buckets for the selected range
             start_bucket = bucket_start(start_time)
@@ -845,7 +971,7 @@ def register_routes(app):
             max_steps = 1000
             while cursor <= end_bucket and max_steps > 0:
                 labels.append(cursor)
-                cursor = next_bucket(cursor)
+                cursor = next_bucket(cursor, time_filter)
                 max_steps -= 1
 
         # Build matrix
@@ -856,8 +982,21 @@ def register_routes(app):
                 row.append(counts.get(b, {}).get(topic, 0))
             matrix.append(row)
 
-        # Serialize labels as ISO date strings
-        label_strings = [b.strftime('%Y-%m-%d') for b in labels]
+        # Serialize labels
+        if time_filter == '15_minutes':
+            label_strings = [b.strftime('%Y-%m-%d %H:%M') for b in labels]
+        elif time_filter == '4_hours':
+            label_strings = [b.strftime('%Y-%m-%d %H:00') for b in labels]
+        elif time_filter == '1_day':
+            label_strings = [b.strftime('%Y-%m-%d') for b in labels]
+        elif time_filter == '1_week':
+            label_strings = [b.strftime('%Y-%m-%d (Week %W)') for b in labels]
+        elif time_filter == '1_month':
+            label_strings = [b.strftime('%Y-%m') for b in labels]
+        elif time_filter == 'all_time':
+            label_strings = ['All Time']
+        else:
+            label_strings = [b.strftime('%Y-%m-%d') for b in labels] # Default fallback
         return jsonify({
             'labels': label_strings,
             'topics': top_topics,
@@ -866,6 +1005,7 @@ def register_routes(app):
 
     @app.route('/api/admin/topic-distribution', methods=['GET'])
     def api_admin_topic_distribution():
+        print("DEBUG: api_admin_topic_distribution accessed.")
         if 'user_id' not in session or session.get('user_role') != 'admin':
             return jsonify({'error': 'Unauthorized'}), 401
         from .models import ChatHistory, User
@@ -873,12 +1013,11 @@ def register_routes(app):
         import collections, re
 
         topic = request.args.get('topic', '').strip().lower()
-        try:
-            days = int(request.args.get('days', '30'))
-        except Exception:
-            days = 30
+        time_filter = request.args.get('time_filter', '1_month').lower() # 15_minutes|4_hours|1_day|1_week|1_month|all_time
         region_filter = request.args.get('region', '').strip()
         province_id = request.args.get('province_id', '').strip()
+
+        print(f"DEBUG: Topic: {topic}, Region Filter: {region_filter}, Province ID: {province_id}")
 
         # Ensure regencies exist for requested province
         if province_id:
@@ -915,80 +1054,50 @@ def register_routes(app):
                 # ignore
 
         now = datetime.utcnow()
-        start_time = now - timedelta(days=days)
+        start_time = None
+        if time_filter == '15_minutes':
+            start_time = now - timedelta(minutes=15)
+        elif time_filter == '4_hours':
+            start_time = now - timedelta(hours=4)
+        elif time_filter == '1_day':
+            start_time = now - timedelta(days=1)
+        elif time_filter == '1_week':
+            start_time = now - timedelta(weeks=1)
+        elif time_filter == '1_month':
+            start_time = now - timedelta(days=30) # Approximate for a month
+        # If time_filter is 'all_time', start_time remains None
+        query = ChatHistory.query.join(User, ChatHistory.user_id == User.id)
+        if start_time:
+            query = query.filter(ChatHistory.created_at >= start_time)
+
         if region_filter:
-            chats = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
-                .filter(ChatHistory.created_at >= start_time, User.region == region_filter).all()
+            query = query.filter(User.region == region_filter)
         elif province_id:
-            # Get all regency names for the selected province
             try:
                 from .models import Regency
                 pid_int = int(province_id)
                 regency_names = [r.name for r in Regency.query.filter_by(province_id=pid_int).all()]
-                
-                # Debug logging
-                print(f"DEBUG topic-distribution: province_id={province_id}, regency_names count={len(regency_names)}")
                 if regency_names:
-                    print(f"DEBUG topic-distribution: First 5 regency names: {regency_names[:5]}")
-                
-                if regency_names:
-                    # Strategy 1: Exact match with regency names
-                    chats = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
-                        .filter(ChatHistory.created_at >= start_time, User.region.in_(regency_names)).all()
-                    print(f"DEBUG topic-distribution: Found {len(chats)} chats with exact regency match")
-                    
-                    # Strategy 2: If no exact match, try fuzzy matching with province name
-                    if len(chats) == 0:
-                        province = Province.query.get(pid_int)
-                        if province:
-                            province_name = province.name.lower()
-                            # Find users whose region contains province name (fuzzy match)
-                            fuzzy_chats = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
-                                .filter(ChatHistory.created_at >= start_time) \
-                                .filter(db.func.lower(User.region).contains(province_name)).all()
-                            chats = fuzzy_chats
-                            print(f"DEBUG topic-distribution: Fuzzy match found {len(chats)} chats for province '{province_name}'")
-                else:
-                    # If no regencies found, try fallback with province name directly
-                    province = Province.query.get(pid_int)
-                    if province:
-                        province_name = province.name.lower()
-                        # Try to find users with region containing province name
-                        chats = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
-                            .filter(ChatHistory.created_at >= start_time) \
-                            .filter(db.func.lower(User.region).contains(province_name)).all()
-                        print(f"DEBUG topic-distribution: Fallback strategy found {len(chats)} chats for province '{province_name}'")
-                    else:
-                        chats = []
-                        print(f"DEBUG topic-distribution: No regencies and no province found for ID {province_id}")
-            except ValueError:
-                # Invalid province_id, return empty result
-                chats = []
-                print(f"DEBUG topic-distribution: Invalid province_id: {province_id}")
-            except Exception as e:
-                # Handle any other database errors
-                chats = []
-                print(f"DEBUG topic-distribution: Database error for province_id {province_id}: {str(e)}")
-        else:
-            chats = ChatHistory.query.filter(ChatHistory.created_at >= start_time).all()
+                    query = query.filter(User.region.in_(regency_names))
+            except (ValueError, Exception):
+                pass
 
-        counts_by_user = collections.Counter()
-        normalized_topic = topic.strip().lower()
-        if not normalized_topic:
-            # Aggregate all chats (all topics) per user in the time window
-            for c in chats:
-                if c.user_id:
-                    counts_by_user[c.user_id] += 1
-        else:
-            for c in chats:
-                if not c.user_id:
-                    continue
-                phrases = [p.lower() for p in extract_phrases(c.question)]
-                best = extract_best_phrase(c.question).lower() if c.question else '-'
-                if normalized_topic in phrases or normalized_topic == best:
-                    counts_by_user[c.user_id] += 1
+        if topic:
+            query = query.filter(ChatHistory.question.ilike(f'%{topic}%'))
+
+        chats = query.all()
+
+        print(f"DEBUG: Total chats found for topic distribution: {len(chats)}")
+
+        counts_by_user = _collections.Counter()
+        for c in chats:
+            if c.user_id:
+                counts_by_user[c.user_id] += 1
+
+        print(f"DEBUG: Counts by user for topic distribution: {counts_by_user}")
 
         if not counts_by_user:
+            print("DEBUG: No user counts for topic distribution. Returning empty markers.")
             return jsonify({'markers': []})
 
         users_query = User.query.filter(
@@ -996,34 +1105,17 @@ def register_routes(app):
             User.latitude.isnot(None),
             User.longitude.isnot(None)
         )
-        if region_filter:
-            users_query = users_query.filter(User.region == region_filter)
-        elif province_id:
-            # Use the same strategy as in the chat filtering above
-            try:
-                from .models import Regency
-                pid_int = int(province_id)
-                regency_names = [r.name for r in Regency.query.filter_by(province_id=pid_int).all()]
-                
-                if regency_names:
-                    users_query = users_query.filter(User.region.in_(regency_names))
-                else:
-                    # Fallback with province name
-                    province = Province.query.get(pid_int)
-                    if province:
-                        province_name = province.name.lower()
-                        users_query = users_query.filter(db.func.lower(User.region).contains(province_name))
-                    else:
-                        users_query = users_query.filter(User.id == -1)  # No results
-            except ValueError:
-                users_query = users_query.filter(User.id == -1)  # No results
         users = users_query.with_entities(User.id, User.latitude, User.longitude, User.region).all()
+
+        print(f"DEBUG: Users with lat/lon for topic distribution: {len(users)}")
 
         markers_map = {}
         for uid, lat, lon, region in users:
             key = (float(lat), float(lon), region or '-')
             markers_map.setdefault(key, 0)
             markers_map[key] += counts_by_user.get(uid, 0)
+
+        print(f"DEBUG: Markers map before geocoding fallback: {markers_map}")
 
         # Fallback: if no users have lat/lon, aggregate by region names and geocode centroids
         if not markers_map and chats:
@@ -1078,95 +1170,20 @@ def register_routes(app):
                     continue
                 region_counts[reg_name] = region_counts.get(reg_name, 0) + cnt
 
+            print(f"DEBUG: Region counts for geocoding: {region_counts}")
+
             for reg_name, cnt in region_counts.items():
                 loc = geocode_region(reg_name)
                 if not loc:
+                    print(f"DEBUG: Could not geocode region: {reg_name}")
                     continue
                 key = (float(loc['lat']), float(loc['lon']), reg_name)
                 markers_map[key] = markers_map.get(key, 0) + cnt
+            print(f"DEBUG: Markers map after geocoding fallback: {markers_map}")
 
         markers = [
-            { 'lat': k[0], 'lon': k[1], 'region': k[2], 'count': v }
+            { 'lat': k[0], 'lon': k[1], 'region': k[2], 'count': v, 'topic': topic }
             for k, v in markers_map.items()
         ]
+        print(f"DEBUG: Final markers to return: {markers}")
         return jsonify({'markers': markers})
-
-    # --- User location update API ---
-    @app.route('/api/user/location', methods=['POST'])
-    def api_user_location():
-        if 'user_id' not in session:
-            return jsonify({'error': 'Unauthorized'}), 401
-        try:
-            if not request.is_json:
-                return jsonify({'error': 'Invalid payload'}), 400
-            data = request.get_json() or {}
-            lat = data.get('lat')
-            lon = data.get('lon')
-            region = data.get('region')
-            if lat is None or lon is None:
-                return jsonify({'error': 'lat/lon required'}), 400
-            lat = float(lat)
-            lon = float(lon)
-            user = User.query.get(session.get('user_id'))
-            if not user:
-                return jsonify({'error': 'User not found'}), 404
-
-            # Try to infer region (kab/kota) via reverse geocoding if missing
-            inferred_region = None
-            if not region or not str(region).strip():
-                try:
-                    import requests
-                    from .models import Regency
-                    headers = {'User-Agent': 'agri-dashboard/1.0 (contact: admin@example.com)'}
-                    url = f'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat={lat}&lon={lon}&zoom=10&addressdetails=1&accept-language=id'
-                    r = requests.get(url, headers=headers, timeout=12)
-                    if r.status_code == 200:
-                        addr = (r.json() or {}).get('address') or {}
-                        candidates = [
-                            addr.get('city'), addr.get('county'), addr.get('municipality'),
-                            addr.get('town'), addr.get('village')
-                        ]
-                        candidates = [c for c in candidates if isinstance(c, str) and c.strip()]
-                        if candidates:
-                            raw = candidates[0].upper()
-                            def normalize(n: str) -> str:
-                                n = n.upper()
-                                for p in ['KABUPATEN ', 'KOTA ADMINISTRASI ', 'KOTA ', 'KAB. ']:
-                                    if n.startswith(p):
-                                        n = n[len(p):]
-                                return n.strip()
-                            target = normalize(raw)
-                            # Try exact or containment match against known regencies
-                            regencies = Regency.query.all()
-                            match = None
-                            for reg in regencies:
-                                rn = normalize(reg.name)
-                                if rn == target or rn in target or target in rn:
-                                    match = reg.name
-                                    break
-                            inferred_region = match or candidates[0]
-                except Exception:
-                    inferred_region = None
-
-            user.latitude = lat
-            user.longitude = lon
-            # Prefer explicit region; otherwise inferred
-            final_region = (region or '').strip() or (inferred_region or '').strip()
-            if final_region:
-                user.region = final_region
-            db.session.commit()
-            return jsonify({'ok': True, 'region': user.region})
-        except Exception as e:
-            logging.exception('[ERROR] updating user location')
-            return jsonify({'error': 'Failed to update location'}), 500
-
-    @app.route('/init-db')
-    def init_db():
-        db.create_all()
-        return "✅ Database initialized!"
-
-    @app.route('/drop-db')
-    def drop_db():
-        db.drop_all()
-        return "✅ Semua tabel dihapus."
-
