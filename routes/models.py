@@ -54,18 +54,3 @@ class Regency(db.Model):
     province_id = db.Column(db.Integer, db.ForeignKey('province.id', ondelete='CASCADE'), nullable=False)
     province = db.relationship('Province', backref=db.backref('regencies', lazy=True))
 
-
-class LocationHistory(db.Model):
-    __tablename__ = 'location_history'
-    id = db.Column(db.Integer, primary_key=True)
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id', ondelete='CASCADE'), nullable=False)
-    latitude = db.Column(db.Float, nullable=False)
-    longitude = db.Column(db.Float, nullable=False)
-    region = db.Column(db.String(100))
-    detection_method = db.Column(db.String(20), default='gps')  # 'gps', 'manual', 'periodic'
-    accuracy = db.Column(db.Float)  # GPS accuracy in meters
-    is_location_change = db.Column(db.Boolean, default=False)
-    distance_from_previous = db.Column(db.Float)  # Distance in kilometers
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    user = db.relationship('User', backref=db.backref('location_history', lazy=True, order_by='LocationHistory.created_at.desc()'))
-

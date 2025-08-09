@@ -8,7 +8,6 @@ import time
 from datetime import datetime
 from uuid import uuid4
 import json
-import math
 
 # ============ Topic Extraction Utilities (phrase-based) ============
 import re as _re
@@ -443,20 +442,10 @@ def register_routes(app):
         try:
             lat = float(data['latitude'])
             lon = float(data['longitude'])
-            is_location_change = data.get('isLocationChange', False)
             
-            print(f"DEBUG: Updating location for user {user.name}: {lat}, {lon} (isLocationChange: {is_location_change})")
-            
-            # Calculate distance from previous location
-            distance_from_previous = 0
-            if user.latitude and user.longitude:
-                distance_from_previous = calculate_distance(
-                    user.latitude, user.longitude, lat, lon
-                )
-                print(f"DEBUG: Distance from previous location: {distance_from_previous:.2f} km")
+            print(f"DEBUG: Updating location for user {user.name}: {lat}, {lon}")
             
             # Update user's current location
-            previous_region = user.region
             user.latitude = lat
             user.longitude = lon
             detected_region = None
@@ -509,55 +498,20 @@ def register_routes(app):
                 print(f"ERROR: Unexpected geocoding error: {e}")
                 detected_region = None
 
-            # Determine detection method
-            detection_method = 'manual'
-            if is_location_change:
-                detection_method = 'periodic'
-            elif not user.location_history:  # First location detection
-                detection_method = 'initial'
-            
-            # Check if region actually changed
-            region_changed = (previous_region != detected_region) if detected_region else False
-            
-            # Save location history
-            from .models import LocationHistory
-            location_entry = LocationHistory(
-                user_id=user.id,
-                latitude=lat,
-                longitude=lon,
-                region=detected_region,
-                detection_method=detection_method,
-                is_location_change=is_location_change or region_changed,
-                distance_from_previous=distance_from_previous if distance_from_previous > 0 else None,
-                created_at=datetime.now()
-            )
-            
-            db.session.add(location_entry)
+            # Commit changes to database
             db.session.commit()
             
-            print(f"DEBUG: Location history saved - Method: {detection_method}, Region Change: {region_changed}")
-            
-            # Prepare response
             response_data = {
                 'status': 'success',
                 'message': 'Location updated successfully',
                 'latitude': lat,
-                'longitude': lon,
-                'distance_moved': round(distance_from_previous, 2) if distance_from_previous > 0 else 0,
-                'detection_method': detection_method
+                'longitude': lon
             }
             
             # Include detected region in response if available
             if detected_region:
                 response_data['region'] = detected_region
-                if region_changed and previous_region:
-                    response_data['message'] = f'Location updated! Region changed from {previous_region} to {detected_region}'
-                    response_data['region_changed'] = True
-                    response_data['previous_region'] = previous_region
-                elif region_changed:
-                    response_data['message'] = f'Location updated successfully. Region: {detected_region}'
-                else:
-                    response_data['message'] = f'Location updated successfully. Region: {detected_region}'
+                response_data['message'] = f'Location updated successfully. Region: {detected_region}'
             
             print(f"DEBUG: Location update response: {response_data}")
             return jsonify(response_data)
@@ -569,25 +523,6 @@ def register_routes(app):
             print(f"ERROR: Database error during location update: {e}")
             db.session.rollback()
             return jsonify({'status': 'error', 'message': 'Failed to update location'}), 500
-            
-    # Helper function to calculate distance between coordinates
-    def calculate_distance(lat1, lon1, lat2, lon2):
-        """Calculate distance between two coordinates using Haversine formula"""
-        R = 6371  # Earth's radius in kilometers
-        
-        lat1_rad = math.radians(lat1)
-        lon1_rad = math.radians(lon1)
-        lat2_rad = math.radians(lat2)
-        lon2_rad = math.radians(lon2)
-        
-        dlat = lat2_rad - lat1_rad
-        dlon = lon2_rad - lon1_rad
-        
-        a = (math.sin(dlat/2)**2 + 
-             math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2)
-        c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-        
-        return R * c
 
     @app.route('/logout')
     def logout():
@@ -1893,69 +1828,3 @@ def register_routes(app):
         print(f"DEBUG: Using default coordinates for {region_name}: {default_coords}")
         return default_coords
 
-    @app.route('/api/location-history', methods=['GET'])
-    def get_location_history():
-        if 'user_id' not in session:
-            return jsonify({'status': 'error', 'message': 'Unauthorized'}), 401
-            
-        user = User.query.get(session['user_id'])
-        if not user:
-            return jsonify({'status': 'error', 'message': 'User not found'}), 404
-            
-        try:
-            # Get query parameters
-            limit = request.args.get('limit', 10, type=int)
-            days = request.args.get('days', 30, type=int)
-            
-            # Calculate date filter
-            from datetime import timedelta
-            cutoff_date = datetime.now() - timedelta(days=days)
-            
-            # Query location history
-            from .models import LocationHistory
-            history = LocationHistory.query.filter(
-                LocationHistory.user_id == user.id,
-                LocationHistory.created_at >= cutoff_date
-            ).order_by(LocationHistory.created_at.desc()).limit(limit).all()
-            
-            # Format response
-            history_data = []
-            for entry in history:
-                history_data.append({
-                    'id': entry.id,
-                    'latitude': entry.latitude,
-                    'longitude': entry.longitude,
-                    'region': entry.region,
-                    'detection_method': entry.detection_method,
-                    'is_location_change': entry.is_location_change,
-                    'distance_from_previous': entry.distance_from_previous,
-                    'created_at': entry.created_at.isoformat(),
-                    'created_at_formatted': entry.created_at.strftime('%d/%m/%Y %H:%M')
-                })
-            
-            # Calculate mobility stats
-            total_entries = len(history_data)
-            location_changes = sum(1 for entry in history_data if entry['is_location_change'])
-            total_distance = sum(entry['distance_from_previous'] or 0 for entry in history_data)
-            unique_regions = len(set(entry['region'] for entry in history_data if entry['region']))
-            
-            return jsonify({
-                'status': 'success',
-                'history': history_data,
-                'stats': {
-                    'total_entries': total_entries,
-                    'location_changes': location_changes,
-                    'total_distance_km': round(total_distance, 2),
-                    'unique_regions': unique_regions,
-                    'days_covered': days
-                },
-                'current_location': {
-                    'latitude': user.latitude,
-                    'longitude': user.longitude,
-                    'region': user.region
-                }
-            })
-            
-        except Exception as e:
-            print(f"ERROR: Failed to get location history: {e}")
-            return jsonify({'status': 'error', 'message': 'Failed to retrieve location history'}), 500
