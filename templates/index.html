@@ -118,6 +118,26 @@
         </main>
     </div>
 
+    <!-- Location Management Controls -->
+    <div id="location-controls" style="position: fixed; bottom: 20px; left: 20px; z-index: 1000; opacity: 0.9;">
+        <div style="background: rgba(255,255,255,0.95); padding: 12px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); font-size: 12px; font-family: 'Inter', sans-serif; border: 1px solid #e0e0e0;">
+            <div style="margin-bottom: 8px; font-weight: 600; color: #333; display: flex; align-items: center;">
+                📍 <span style="margin-left: 4px;">Kontrol Lokasi</span>
+            </div>
+            <div style="display: flex; gap: 6px; margin-bottom: 8px;">
+                <button onclick="refreshLocation()" style="padding: 6px 10px; border: 1px solid #ddd; background: #f8f9fa; border-radius: 4px; cursor: pointer; font-size: 11px; transition: all 0.2s;" onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='#f8f9fa'" title="Perbarui lokasi sekarang">
+                    🔄 Refresh
+                </button>
+                <button id="tracking-toggle" onclick="toggleLocationTracking()" style="padding: 6px 10px; border: 1px solid #4caf50; background: #e8f5e9; color: #2e7d32; border-radius: 4px; cursor: pointer; font-size: 11px; transition: all 0.2s;" title="Toggle pelacakan otomatis">
+                    ✅ Auto
+                </button>
+            </div>
+            <div id="location-status" style="font-size: 10px; color: #666; line-height: 1.3;">
+                Status: Memuat...
+            </div>
+        </div>
+    </div>
+
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         const chatMessages = document.getElementById('chat-messages');
@@ -296,71 +316,199 @@
             });
         }
 
-        // Enhanced automatic location detection with user feedback
-        function updateLocation() {
+        // Dynamic Location Tracking for User Mobility
+        let lastKnownLocation = null;
+        let locationTrackingInterval = null;
+        let locationChangeThreshold = 5; // kilometers
+        
+        // Enhanced location detection with mobility tracking
+        function updateLocation(isPeriodicCheck = false) {
             if (!navigator.geolocation) {
                 console.log("Geolocation tidak didukung oleh browser Anda.");
                 return;
             }
 
-            console.log("Meminta izin akses lokasi untuk deteksi region otomatis...");
-            
-            // Show loading message
-            showLocationNotification('info', 'Mendeteksi lokasi Anda untuk region otomatis...', 3000);
+            if (!isPeriodicCheck) {
+                console.log("Meminta izin akses lokasi untuk deteksi region otomatis...");
+                showLocationNotification('info', 'Mendeteksi lokasi Anda untuk region otomatis...', 3000);
+            }
 
             navigator.geolocation.getCurrentPosition(
                 (position) => {
                     const { latitude, longitude } = position.coords;
-                    console.log(`Lokasi terdeteksi: ${latitude}, ${longitude}`);
+                    const currentLocation = { lat: latitude, lon: longitude };
                     
-                    showLocationNotification('success', 'Lokasi berhasil terdeteksi! Mengidentifikasi region...', 2000);
+                    // Check if location has changed significantly
+                    const hasLocationChanged = checkLocationChange(currentLocation, lastKnownLocation);
+                    
+                    if (!isPeriodicCheck) {
+                        console.log(`Lokasi terdeteksi: ${latitude}, ${longitude}`);
+                        showLocationNotification('success', 'Lokasi berhasil terdeteksi! Mengidentifikasi region...', 2000);
+                    } else if (hasLocationChanged) {
+                        console.log(`Lokasi berubah terdeteksi: ${latitude}, ${longitude}`);
+                        showLocationNotification('info', 'Lokasi Anda berubah! Memperbarui region...', 3000);
+                    } else {
+                        // Location hasn't changed significantly, skip update
+                        return;
+                    }
                     
                     fetch('/update_location', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ latitude, longitude })
+                        body: JSON.stringify({ 
+                            latitude, 
+                            longitude,
+                            isLocationChange: hasLocationChanged && isPeriodicCheck
+                        })
                     })
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'success') {
                             console.log('Lokasi berhasil diperbarui:', data);
                             
+                            // Update last known location
+                            lastKnownLocation = currentLocation;
+                            
                             if (data.region) {
-                                showLocationNotification('success', `Region Anda: ${data.region}`, 5000);
-                                console.log(`Region otomatis terdeteksi: ${data.region}`);
+                                if (hasLocationChanged && isPeriodicCheck) {
+                                    showLocationNotification('success', `Lokasi diperbarui! Region baru: ${data.region}`, 5000);
+                                } else {
+                                    showLocationNotification('success', `Region Anda: ${data.region}`, 5000);
+                                }
+                                console.log(`Region ${hasLocationChanged ? 'diperbarui' : 'terdeteksi'}: ${data.region}`);
                             } else {
                                 showLocationNotification('success', 'Lokasi berhasil disimpan!', 3000);
                             }
+                            
+                            // Start periodic tracking after first successful detection
+                            if (!isPeriodicCheck && !locationTrackingInterval) {
+                                startLocationTracking();
+                            }
                         } else {
                             console.error('Gagal memperbarui lokasi:', data.message);
-                            showLocationNotification('warning', 'Gagal menyimpan lokasi ke server', 3000);
+                            if (!isPeriodicCheck) {
+                                showLocationNotification('warning', 'Gagal menyimpan lokasi ke server', 3000);
+                            }
                         }
                     })
                     .catch(error => {
                         console.error('Error saat mengirim lokasi ke server:', error);
-                        showLocationNotification('error', 'Error mengirim lokasi ke server', 3000);
+                        if (!isPeriodicCheck) {
+                            showLocationNotification('error', 'Error mengirim lokasi ke server', 3000);
+                        }
                     });
                 },
                 (error) => {
-                    console.error("Error mendapatkan lokasi:", error.message);
-                    
-                    let errorMessage = 'Deteksi lokasi gagal';
-                    if (error.code === 1) { // PERMISSION_DENIED
-                        errorMessage = 'Izin akses lokasi ditolak. Region akan dideteksi dari aktivitas chat Anda.';
-                    } else if (error.code === 2) { // POSITION_UNAVAILABLE
-                        errorMessage = 'Lokasi tidak dapat dideteksi. Pastikan GPS aktif.';
-                    } else if (error.code === 3) { // TIMEOUT
-                        errorMessage = 'Timeout deteksi lokasi. Silakan coba lagi nanti.';
+                    if (!isPeriodicCheck) {
+                        console.error("Error mendapatkan lokasi:", error.message);
+                        
+                        let errorMessage = 'Deteksi lokasi gagal';
+                        if (error.code === 1) { // PERMISSION_DENIED
+                            errorMessage = 'Izin akses lokasi ditolak. Region akan dideteksi dari aktivitas chat Anda.';
+                        } else if (error.code === 2) { // POSITION_UNAVAILABLE
+                            errorMessage = 'Lokasi tidak dapat dideteksi. Pastikan GPS aktif.';
+                        } else if (error.code === 3) { // TIMEOUT
+                            errorMessage = 'Timeout deteksi lokasi. Silakan coba lagi nanti.';
+                        }
+                        
+                        showLocationNotification('warning', errorMessage, 5000);
                     }
-                    
-                    showLocationNotification('warning', errorMessage, 5000);
                 },
                 {
                     enableHighAccuracy: true,
                     timeout: 15000,
-                    maximumAge: 300000 // 5 minutes cache
+                    maximumAge: isPeriodicCheck ? 60000 : 300000 // Shorter cache for periodic checks
                 }
             );
+        }
+        
+        // Check if location has changed significantly
+        function checkLocationChange(currentLocation, lastLocation) {
+            if (!lastLocation) return false;
+            
+            const distance = calculateDistance(
+                currentLocation.lat, currentLocation.lon,
+                lastLocation.lat, lastLocation.lon
+            );
+            
+            console.log(`Distance from last location: ${distance.toFixed(2)} km`);
+            return distance > locationChangeThreshold;
+        }
+        
+        // Calculate distance between two coordinates (Haversine formula)
+        function calculateDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371; // Earth's radius in kilometers
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = 
+                Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+            return R * c;
+        }
+        
+        // Manual location refresh button functionality
+        function refreshLocation() {
+            showLocationNotification('info', 'Memperbarui lokasi secara manual...', 2000);
+            updateLocation(false);
+        }
+        
+        // Toggle location tracking on/off
+        function toggleLocationTracking() {
+            const toggleBtn = document.getElementById('tracking-toggle');
+            const statusDiv = document.getElementById('location-status');
+            
+            if (locationTrackingInterval) {
+                // Stop tracking
+                stopLocationTracking();
+                toggleBtn.innerHTML = '❌ Manual';
+                toggleBtn.style.background = '#ffebee';
+                toggleBtn.style.color = '#c62828';
+                toggleBtn.style.borderColor = '#f44336';
+                statusDiv.textContent = 'Status: Pelacakan dihentikan (manual)';
+            } else {
+                // Start tracking
+                startLocationTracking();
+                toggleBtn.innerHTML = '✅ Auto';
+                toggleBtn.style.background = '#e8f5e9';
+                toggleBtn.style.color = '#2e7d32';
+                toggleBtn.style.borderColor = '#4caf50';
+                statusDiv.textContent = 'Status: Pelacakan aktif (setiap 5 menit)';
+            }
+        }
+        
+        // Update location status display
+        function updateLocationStatus(message) {
+            const statusDiv = document.getElementById('location-status');
+            if (statusDiv) {
+                statusDiv.textContent = `Status: ${message}`;
+            }
+        }
+        
+        // Enhanced start tracking with UI updates
+        function startLocationTracking() {
+            console.log('Memulai pelacakan lokasi berkala untuk mendeteksi perpindahan...');
+            
+            // Check location every 5 minutes
+            locationTrackingInterval = setInterval(() => {
+                updateLocation(true); // isPeriodicCheck = true
+            }, 5 * 60 * 1000); // 5 minutes
+            
+            // Show tracking notification
+            showLocationNotification('info', 'Pelacakan lokasi aktif untuk deteksi perpindahan', 3000);
+            updateLocationStatus('Pelacakan aktif (setiap 5 menit)');
+        }
+        
+        // Enhanced stop tracking with UI updates  
+        function stopLocationTracking() {
+            if (locationTrackingInterval) {
+                clearInterval(locationTrackingInterval);
+                locationTrackingInterval = null;
+                console.log('Pelacakan lokasi dihentikan');
+                showLocationNotification('info', 'Pelacakan lokasi dihentikan', 2000);
+                updateLocationStatus('Pelacakan dihentikan (manual)');
+            }
         }
         
         function showLocationNotification(type, message, duration = 3000) {
