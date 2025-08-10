@@ -714,101 +714,11 @@
     }
 
     // System Logs Functions
-    async function loadSystemLogs() {
-        try {
-            const logType = document.getElementById('log-type').value;
-            const days = document.getElementById('log-days').value;
-            
-            const response = await fetch(`/api/admin/logs?type=${logType}&days=${days}`);
-            const data = await response.json();
-            
-            const logContainer = document.getElementById('activityLog');
-            logContainer.innerHTML = '';
-            
-            data.logs.forEach(log => {
-                const logEntry = document.createElement('div');
-                logEntry.className = 'log-entry';
-                logEntry.innerHTML = `
-                    <div>${log.message}</div>
-                    <div class="log-time">${new Date(log.timestamp).toLocaleString('id-ID')}</div>
-                `;
-                logContainer.appendChild(logEntry);
-            });
-        } catch (error) {
-            console.error('Error loading logs:', error);
-        }
-    }
+    // loadSystemLogs function removed - system logs tab deleted
 
-    // Form submission handlers
-    document.getElementById('addUserForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const formData = new FormData(e.target);
-        const userData = Object.fromEntries(formData.entries());
-        userData.dob = '2000-01-01'; // Default date
-        userData.gender = 'L'; // Default gender
-        
-        try {
-            const response = await fetch('/api/admin/users', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(userData)
-            });
-            
-            const data = await response.json();
-            
-            if (data.error) {
-                throw new Error(data.error);
-            }
-            
-            showAlert('User berhasil ditambahkan', 'success');
-            closeModal('addUserModal');
-            loadUsers();
-            loadUserStats();
-            e.target.reset();
-        } catch (error) {
-            console.error('Error adding user:', error);
-            showAlert('Gagal menambahkan user', 'danger');
-        }
-    });
+    // Form submission handlers removed - user management forms deleted
 
-    document.getElementById('editUserForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        
-        const formData = new FormData(e.target);
-        const userData = Object.fromEntries(formData.entries());
-        const userId = userData.id;
-        delete userData.id;
-        
-        try {
-            const response = await fetch(`/api/admin/users/${userId}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(userData)
-            });
-            
-            const data = await response.json();
-            
-            if (data.error) {
-                throw new Error(data.error);
-            }
-            
-            showAlert('User berhasil diupdate', 'success');
-            closeModal('editUserModal');
-            loadUsers();
-        } catch (error) {
-            console.error('Error updating user:', error);
-            showAlert('Gagal mengupdate user', 'danger');
-        }
-    });
-
-    // Event listeners for log filters
-    document.getElementById('log-type').addEventListener('change', loadSystemLogs);
-    document.getElementById('log-days').addEventListener('change', loadSystemLogs);
+    // Event listeners for log filters - REMOVED (system logs tab deleted)
 
     // Close modals when clicking outside
     window.addEventListener('click', (e) => {
