@@ -1072,8 +1072,7 @@
      }
 
     // ============ Event Listeners & Initialization ==========
-    const topicEl = document.getElementById('filter-topic');
-    const mapDaysEl = document.getElementById('map-days');
+    // All element references and event listeners are now set up in DOMContentLoaded
 
     function addDebouncedListener(element, event, func, delay) {
         let timeout;
@@ -1083,35 +1082,7 @@
         });
     }
 
-    addDebouncedListener(periodEl, 'change', loadTrendChart, 200);
-    addDebouncedListener(daysEl, 'change', loadTrendChart, 200);
-
-    provinceEl.addEventListener('change', async () => {
-        const pid = provinceEl.value;
-        await populateRegencies(pid);
-        regionEl.value = '';
-        history.replaceState(null, '', `${window.location.pathname}?province_id=${pid}`);
-        await loadTrendChart();
-        await renderTopicBubbles(topicEl.value, mapDaysEl.value);
-    });
-
-    regionEl.addEventListener('change', async () => {
-        const value = regionEl.value;
-        const pid = provinceEl.value;
-        const params = new URLSearchParams();
-        if (pid) params.set('province_id', pid);
-        if (value) params.set('region', value);
-        history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
-        await loadTrendChart();
-        await renderTopicBubbles(topicEl.value, mapDaysEl.value);
-    });
-    
-    addDebouncedListener(topicEl, 'change', () => renderTopicBubbles(topicEl.value, mapDaysEl.value), 200);
-    addDebouncedListener(mapDaysEl, 'change', () => renderTopicBubbles(topicEl.value, mapDaysEl.value), 200);
-    addDebouncedListener(timeRangeEl, 'change', async () => { // New
-        await loadTrendChart();
-        await renderTopicBubbles(topicEl.value, mapDaysEl.value);
-    }, 200);
+    // Event listeners will be set up in DOMContentLoaded
 
     // Provincial Topics Functions
     async function populateProvincialFilter() {
@@ -1245,6 +1216,17 @@
        }
 
        window.addEventListener('DOMContentLoaded', async () => {
+           console.log('Dashboard initializing...');
+           
+           // Ensure all elements exist before proceeding
+           const topicElement = document.getElementById('filter-topic');
+           const mapDaysElement = document.getElementById('map-days');
+           
+           if (!topicElement || !mapDaysElement) {
+               console.error('Required elements not found:', {topicElement, mapDaysElement});
+               return;
+           }
+           
            // Use Promise.all for parallel initialization
            const initPromises = [
                populateProvinces(),
@@ -1252,6 +1234,7 @@
            ];
            
            await Promise.all(initPromises);
+           console.log('Provinces and filters populated');
            
            if (preselectedProvinceId) {
                await populateRegencies(preselectedProvinceId);
@@ -1260,17 +1243,75 @@
            // Initialize map only when overview tab is active
            const overviewTab = document.getElementById('overview');
            if (overviewTab && overviewTab.classList.contains('active')) {
+               console.log('Initializing map...');
                initMap();
            }
            
+           // Set up all event listeners
+           const periodElement = document.getElementById('trend-period');
+           const daysElement = document.getElementById('trend-days');
+           const timeRangeElement = document.getElementById('time-range');
+           const provinceElement = document.getElementById('filter-province');
+           const regionElement = document.getElementById('admin-region');
+           
+           // Chart event listeners
+           if (periodElement) {
+               addDebouncedListener(periodElement, 'change', loadTrendChart, 200);
+           }
+           if (daysElement) {
+               addDebouncedListener(daysElement, 'change', loadTrendChart, 200);
+           }
+           
+           // Province filter listener
+           if (provinceElement) {
+               provinceElement.addEventListener('change', async () => {
+                   const pid = provinceElement.value;
+                   await populateRegencies(pid);
+                   if (regionElement) regionElement.value = '';
+                   history.replaceState(null, '', `${window.location.pathname}?province_id=${pid}`);
+                   await loadTrendChart();
+                   await renderTopicBubbles(topicElement.value || '', mapDaysElement.value || '30');
+               });
+           }
+           
+           // Region filter listener
+           if (regionElement) {
+               regionElement.addEventListener('change', async () => {
+                   const value = regionElement.value;
+                   const pid = provinceElement ? provinceElement.value : '';
+                   const params = new URLSearchParams();
+                   if (pid) params.set('province_id', pid);
+                   if (value) params.set('region', value);
+                   history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`);
+                   await loadTrendChart();
+                   await renderTopicBubbles(topicElement.value || '', mapDaysElement.value || '30');
+               });
+           }
+           
+           // Map event listeners
+           if (topicElement) {
+               addDebouncedListener(topicElement, 'change', () => renderTopicBubbles(topicElement.value || '', mapDaysElement.value || '30'), 200);
+           }
+           if (mapDaysElement) {
+               addDebouncedListener(mapDaysElement, 'change', () => renderTopicBubbles(topicElement.value || '', mapDaysElement.value || '30'), 200);
+           }
+           if (timeRangeElement) {
+               addDebouncedListener(timeRangeElement, 'change', async () => {
+                   await loadTrendChart();
+                   await renderTopicBubbles(topicElement.value || '', mapDaysElement.value || '30');
+               }, 200);
+           }
+           
            // Load chart and bubbles in parallel
+           console.log('Loading chart and bubbles...');
            Promise.all([
                loadTrendChart(),
-               renderTopicBubbles(topicEl.value, mapDaysEl.value)
+               renderTopicBubbles(topicElement.value || '', mapDaysElement.value || '30')
            ]);
            
            // Initialize notification system
            initNotificationSystem();
+           console.log('Dashboard initialization complete');
        });
 
      // ============ Notification System ==========
