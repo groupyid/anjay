@@ -1634,119 +1634,88 @@ def register_routes(app):
 
     # Helper function for region coordinates (auto-detection prioritized)
     def get_region_coordinates(region_name):
-        """Get latitude and longitude for a region name using automatic detection"""
+        """Get coordinates for any region using fully automatic geocoding"""
         import requests
         import time
+        import sys
+        import os
         
-        # Cache to avoid repeated API calls
-        if not hasattr(get_region_coordinates, 'cache'):
-            get_region_coordinates.cache = {}
+        # Add current directory to path for auto_geocoding import
+        sys.path.append(os.path.dirname(os.path.abspath(__file__ + '/..')))
         
-        # Check cache first (for performance)
-        cache_key = region_name.strip().upper()
-        if cache_key in get_region_coordinates.cache:
-            print(f"DEBUG: Found coordinates for {region_name} in cache: {get_region_coordinates.cache[cache_key]}")
-            return get_region_coordinates.cache[cache_key]
-        
-        # PRIMARY: Auto geocoding API (automatic detection)
         try:
-            time.sleep(0.1)  # Basic rate limiting
-            headers = {'User-Agent': 'agri-dashboard/1.0 (contact: admin@example.com)'}
+            # Try to use the advanced auto-geocoding system
+            from auto_geocoding import get_coordinates_auto
+            coords = get_coordinates_auto(region_name)
+            print(f"DEBUG: Auto-geocoded {region_name}: {coords}")
+            return coords
             
-            # Try multiple query formats for better accuracy
-            queries = [
-                f"{region_name}, Indonesia",
-                f"Kabupaten {region_name}, Indonesia",
-                f"Kota {region_name}, Indonesia",
-                f"{region_name.replace('KABUPATEN', '').replace('KOTA', '').strip()}, Indonesia"
-            ]
+        except ImportError:
+            print(f"DEBUG: Auto-geocoding module not available, using simple automatic system")
             
-            for query in queries:
-                try:
-                    url = f"https://nominatim.openstreetmap.org/search?q={requests.utils.quote(query)}&format=json&limit=1&countrycodes=id&accept-language=id"
-                    response = requests.get(url, headers=headers, timeout=5)
-                    
-                    if response.status_code == 200:
-                        data = response.json()
-                        if data and len(data) > 0:
-                            lat, lon = float(data[0]['lat']), float(data[0]['lon'])
-                            get_region_coordinates.cache[cache_key] = (lat, lon)
-                            print(f"DEBUG: AUTO-DETECTED coordinates for {region_name} via geocoding '{query}': ({lat}, {lon})")
-                            return lat, lon
-                except Exception as e:
-                    print(f"DEBUG: Geocoding attempt failed for query '{query}': {e}")
-                    continue
-                    
-        except Exception as e:
-            print(f"DEBUG: All geocoding attempts failed for {region_name}: {e}")
-        
-        # FALLBACK: Manual coordinate mapping (for performance/reliability)
-        coordinate_map = {
-            # Major Cities (high-traffic fallbacks)
-            'Jakarta': (-6.2088, 106.8456),
-            'Surabaya': (-7.2575, 112.7521),
-            'Bandung': (-6.9175, 107.6191),
-            'KOTA BANDUNG': (-6.9175, 107.6191),  # Database format
-            'KOTA JAKARTA': (-6.2088, 106.8456),  # Database format
-            'KOTA SURABAYA': (-7.2575, 112.7521),  # Database format
-            'KOTA MEDAN': (3.5952, 98.6722),  # Database format
-            'Medan': (3.5952, 98.6722),
-            'Semarang': (-6.9666, 110.4167),
-            'Makassar': (-5.1477, 119.4327),
-            'Palembang': (-2.9761, 104.7754),
+            # Simple automatic geocoding fallback
+            # Cache for performance
+            if not hasattr(get_region_coordinates, 'cache'):
+                get_region_coordinates.cache = {}
             
-            # Aceh Province (common regions)
-            'Aceh': (4.695135, 96.7493993),
-            'Banda Aceh': (5.5577, 95.3222),
-            'Aceh Besar': (5.4519, 95.4043),
-            'Aceh Timur': (4.7362, 97.6253),
-            'Aceh Utara': (5.1728, 97.1384),
-            'Aceh Barat': (4.4547, 96.1746),
-            'Aceh Selatan': (3.2374, 97.4191),
+            cache_key = region_name.lower().strip()
+            if cache_key in get_region_coordinates.cache:
+                return get_region_coordinates.cache[cache_key]
             
-            # Provincial capitals
-            'Sumatra Utara': (2.1153547, 99.5450974),
-            'Sumatra Barat': (-0.7893803, 100.6614298),
-            'Riau': (0.2933469, 101.7068294),
-            'Jambi': (-1.4851831, 103.6140016),
-            'Sumatra Selatan': (-3.3194374, 103.9145314),
-            'Bengkulu': (-3.5778471, 102.3463875),
-            'Lampung': (-4.5585849, 105.4068079),
-            'Jawa Barat': (-6.9174639, 107.6191228),
-            'Jawa Tengah': (-7.150975, 110.1402594),
-            'Jawa Timur': (-7.5360639, 112.2384017),
-            'Banten': (-6.4058172, 106.0640179),
-            'Bali': (-8.4095178, 115.188916),
-            'Nusa Tenggara Barat': (-8.6529334, 117.3616476),
-            'Nusa Tenggara Timur': (-8.6573819, 121.0793705),
-            'Kalimantan Barat': (-0.2787808, 111.4752851),
-            'Kalimantan Tengah': (-1.6814878, 113.3823545),
-            'Kalimantan Selatan': (-3.0926415, 115.2837585),
-            'Kalimantan Timur': (1.5726923, 116.4194496),
-            'Kalimantan Utara': (2.72074, 117.1683),
-            'Sulawesi Utara': (0.6246932, 123.9750018),
-            'Sulawesi Tengah': (-1.4300254, 121.4456179),
-            'Sulawesi Selatan': (-3.6687994, 119.9740534),
-            'Sulawesi Tenggara': (-4.14491, 122.174605),
-            'Gorontalo': (0.6999372, 122.4467238),
-            'Sulawesi Barat': (-2.8441371, 119.2320784),
-            'Maluku': (-3.2384616, 130.1452734),
-            'Maluku Utara': (1.5709993, 127.8087693),
-            'Papua Barat': (-1.3361154, 133.1747162),
-            'Papua': (-4.269928, 138.0803529),
-        }
-        
-        # Check manual mapping with fuzzy matching (fallback)
-        region_lower = region_name.lower().strip()
-        for key, coords in coordinate_map.items():
-            if key.lower() in region_lower or region_lower in key.lower():
-                get_region_coordinates.cache[cache_key] = coords
-                print(f"DEBUG: Found coordinates for {region_name} via manual mapping: {coords}")
-                return coords
-        
-        # Last resort: Default coordinates for Indonesia center
-        default_coords = (-2.5, 117)
-        get_region_coordinates.cache[cache_key] = default_coords
-        print(f"DEBUG: Using default coordinates for {region_name}: {default_coords}")
-        return default_coords
+            # Try Nominatim API directly
+            try:
+                time.sleep(0.1)  # Rate limiting
+                query = f"{region_name}, Indonesia"
+                url = f"https://nominatim.openstreetmap.org/search"
+                params = {
+                    'q': query,
+                    'format': 'json',
+                    'limit': 1,
+                    'countrycodes': 'id'
+                }
+                headers = {'User-Agent': 'Indonesian Agriculture Dashboard/1.0'}
+                
+                response = requests.get(url, params=params, headers=headers, timeout=10)
+                
+                if response.status_code == 200:
+                    data = response.json()
+                    if data:
+                        lat, lon = float(data[0]['lat']), float(data[0]['lon'])
+                        coords = (lat, lon)
+                        get_region_coordinates.cache[cache_key] = coords
+                        print(f"DEBUG: Automatically geocoded {region_name}: {coords}")
+                        return coords
+                        
+            except Exception as e:
+                print(f"DEBUG: Automatic geocoding failed for {region_name}: {e}")
+            
+            # Intelligent default based on region name patterns
+            region_lower = region_name.lower()
+            
+            if any(x in region_lower for x in ['jakarta', 'dki']):
+                coords = (-6.2088, 106.8456)  # Jakarta
+            elif any(x in region_lower for x in ['aceh', 'banda aceh']):
+                coords = (5.5577, 95.3222)   # Banda Aceh
+            elif any(x in region_lower for x in ['jawa barat', 'jabar', 'bandung']):
+                coords = (-6.9175, 107.6191)  # Bandung
+            elif any(x in region_lower for x in ['jawa timur', 'jatim', 'surabaya']):
+                coords = (-7.2575, 112.7521)  # Surabaya
+            elif any(x in region_lower for x in ['jawa tengah', 'jateng', 'semarang']):
+                coords = (-6.9666, 110.4167)  # Semarang
+            elif any(x in region_lower for x in ['sumatra', 'medan']):
+                coords = (3.5952, 98.6722)    # Medan
+            elif any(x in region_lower for x in ['kalimantan', 'borneo']):
+                coords = (-2.2118, 113.9213)  # Central Kalimantan
+            elif any(x in region_lower for x in ['sulawesi', 'makassar']):
+                coords = (-5.1477, 119.4327)  # Makassar
+            elif any(x in region_lower for x in ['papua', 'jayapura']):
+                coords = (-2.5317, 140.7189)  # Jayapura
+            elif any(x in region_lower for x in ['bali', 'denpasar']):
+                coords = (-8.6500, 115.2167)  # Denpasar
+            else:
+                coords = (-2.5, 117.0)  # Geographic center of Indonesia
+            
+            get_region_coordinates.cache[cache_key] = coords
+            print(f"DEBUG: Using intelligent default for {region_name}: {coords}")
+            return coords
 
