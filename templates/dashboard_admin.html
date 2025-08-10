@@ -808,11 +808,7 @@
     // ============ Chart: Tren Topik ==========
     const trendCtx = document.getElementById('trendChart').getContext('2d');
     let trendChart = null;
-    const periodEl = document.getElementById('trend-period');
-    const daysEl = document.getElementById('trend-days');
-    const provinceEl = document.getElementById('filter-province');
-    const regionEl = document.getElementById('admin-region');
-    const timeRangeEl = document.getElementById('time-range'); // New
+    // Global element references - moved to DOMContentLoaded for safety
     const preselectedRegion = "{{ selected_region or '' }}";
     const preselectedProvinceId = "{{ selected_province_id or '' }}";
 
@@ -825,24 +821,48 @@
 
     async function populateProvinces() {
         try {
+            const provinceElement = document.getElementById('filter-province');
+            if (!provinceElement) {
+                console.error('Province dropdown not found');
+                return;
+            }
+            
             const json = await cachedFetch('/api/admin/provinces');
             const provinces = json.provinces || [];
-            for (let i = provinceEl.options.length - 1; i >= 1; i--) provinceEl.remove(i);
+            
+            // Clear existing options except first
+            for (let i = provinceElement.options.length - 1; i >= 1; i--) {
+                provinceElement.remove(i);
+            }
+            
             provinces.forEach(p => {
                 const opt = document.createElement('option');
                 opt.value = String(p.id);
                 opt.textContent = p.name;
                 if (preselectedProvinceId && String(p.id) === String(preselectedProvinceId)) opt.selected = true;
-                provinceEl.appendChild(opt);
+                provinceElement.appendChild(opt);
             });
+            
+            console.log(`Populated ${provinces.length} provinces`);
         } catch (e) {
             console.error('Gagal memuat provinsi', e);
         }
     }
 
     async function populateRegencies(provinceId) {
-        for (let i = regionEl.options.length - 1; i >= 1; i--) regionEl.remove(i);
+        const regionElement = document.getElementById('admin-region');
+        if (!regionElement) {
+            console.error('Region dropdown not found');
+            return;
+        }
+        
+        // Clear existing options except first
+        for (let i = regionElement.options.length - 1; i >= 1; i--) {
+            regionElement.remove(i);
+        }
+        
         if (!provinceId) return;
+        
         try {
             const res = await fetch(`/api/admin/regencies?province_id=${encodeURIComponent(provinceId)}`);
             const json = await res.json();
@@ -855,8 +875,9 @@
                 if (preselectedRegion && preselectedRegion === shortName && String(provinceId) === String(preselectedProvinceId)) {
                     opt.selected = true;
                 }
-                regionEl.appendChild(opt);
+                regionElement.appendChild(opt);
             });
+            console.log(`Populated ${regs.length} regencies for province ${provinceId}`);
         } catch (e) {
             console.error('Gagal memuat kab/kota', e);
         }
@@ -880,11 +901,17 @@
     
     async function loadTrendChart() {
          try {
-             const period = periodEl.value;
-             const days = daysEl.value;
-             const region = regionEl.value;
-             const provinceId = provinceEl.value;
-             const timeRange = timeRangeEl.value; // Get time range
+             const periodElement = document.getElementById('trend-period');
+             const daysElement = document.getElementById('trend-days');
+             const regionElement = document.getElementById('admin-region');
+             const provinceElement = document.getElementById('filter-province');
+             const timeRangeElement = document.getElementById('time-range');
+             
+             const period = periodElement?.value || 'week';
+             const days = daysElement?.value || '90';
+             const region = regionElement?.value || '';
+             const provinceId = provinceElement?.value || '';
+             const timeRange = timeRangeElement?.value || '1_week';
              const params = new URLSearchParams({ period, days, region, province_id: provinceId, time_range: timeRange }); // Add time_range
              const res = await fetch(`/api/admin/trends?${params.toString()}`);
              if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -926,15 +953,18 @@
              };
 
              if (labels.length === 0 || datasets.length === 0) {
-                 const regionText = regionEl.value || (provinceEl.options[provinceEl.selectedIndex]?.text || 'filter yang dipilih');
+                 const regionElement = document.getElementById('admin-region');
+                const provinceElement = document.getElementById('filter-province');
+                const regionText = regionElement?.value || (provinceElement?.options[provinceElement?.selectedIndex]?.text || 'filter yang dipilih');
                  options.plugins.title = { display: true, text: `Tidak ada data untuk ${regionText}`, font: { size: 16 }, color: '#999' };
              }
              
              trendChart = new Chart(trendCtx, { type: 'line', data: { labels, datasets }, options });
              
-             if (!topicEl.value && topics.length > 0) {
-                 topicEl.value = topics[0];
-             }
+                         const topicElement = document.getElementById('filter-topic');
+            if (topicElement && !topicElement.value && topics.length > 0) {
+                topicElement.value = topics[0];
+            }
              await refreshInsightCount();
          } catch (error) {
              console.error('Error loading trend chart:', error);
@@ -1035,9 +1065,12 @@
          }
          
          bubbleLayer.clearLayers();
-         const region = regionEl.value;
-         const provinceId = provinceEl.value;
-         const timeRange = timeRangeEl.value; // Get time range
+                 const regionElement = document.getElementById('admin-region');
+        const provinceElement = document.getElementById('filter-province');
+        const timeRangeElement = document.getElementById('time-range');
+        const region = regionElement?.value || '';
+        const provinceId = provinceElement?.value || '';
+        const timeRange = timeRangeElement?.value || '1_week';
          const topicParam = topic || '';
          const params = new URLSearchParams({ topic: topicParam, days, region, province_id: provinceId, time_range: timeRange }); // Add time_range
          
@@ -1294,7 +1327,6 @@
            }
            
            // Initialize map only when overview tab is active
-           const overviewTab = document.getElementById('overview');
            if (overviewTab && overviewTab.classList.contains('active')) {
                console.log('Initializing map...');
                if (typeof L !== 'undefined') {
