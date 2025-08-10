@@ -36,9 +36,6 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
         .tab-content {
-            display: none;
-        }
-        .tab-content.active {
             display: block;
         }
         .user-table {
@@ -540,6 +537,18 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <script>
+    // Check if libraries loaded
+    console.log('Libraries status:', {
+        Chart: typeof Chart !== 'undefined',
+        L: typeof L !== 'undefined'
+    });
+    
+    if (typeof Chart === 'undefined') {
+        console.error('Chart.js failed to load');
+    }
+    if (typeof L === 'undefined') {
+        console.error('Leaflet.js failed to load');
+    }
     // Single dashboard - no tabs needed
     // Initialize dashboard content on load
 
@@ -1218,9 +1227,23 @@
        window.addEventListener('DOMContentLoaded', async () => {
            console.log('Dashboard initializing...');
            
+           // Force show overview content (backup plan)
+           const overviewTab = document.getElementById('overview');
+           if (overviewTab) {
+               overviewTab.style.display = 'block';
+               overviewTab.style.visibility = 'visible';
+               console.log('Overview tab forced visible');
+           }
+           
            // Ensure all elements exist before proceeding
            const topicElement = document.getElementById('filter-topic');
            const mapDaysElement = document.getElementById('map-days');
+           
+           console.log('Elements found:', {
+               topicElement: !!topicElement,
+               mapDaysElement: !!mapDaysElement,
+               overview: !!overviewTab
+           });
            
            if (!topicElement || !mapDaysElement) {
                console.error('Required elements not found:', {topicElement, mapDaysElement});
@@ -1229,12 +1252,12 @@
            
            // Use Promise.all for parallel initialization
            const initPromises = [
-               populateProvinces(),
-               populateProvincialFilter()
+               populateProvinces().catch(e => console.error('populateProvinces failed:', e)),
+               populateProvincialFilter().catch(e => console.error('populateProvincialFilter failed:', e))
            ];
            
            await Promise.all(initPromises);
-           console.log('Provinces and filters populated');
+           console.log('Provinces and filters populated (some may have failed)');
            
            if (preselectedProvinceId) {
                await populateRegencies(preselectedProvinceId);
@@ -1305,8 +1328,22 @@
            // Load chart and bubbles in parallel
            console.log('Loading chart and bubbles...');
            Promise.all([
-               loadTrendChart(),
-               renderTopicBubbles(topicElement.value || '', mapDaysElement.value || '30')
+               loadTrendChart().catch(e => {
+                   console.error('loadTrendChart failed:', e);
+                   // Show fallback chart content
+                   const chartContainer = document.querySelector('.chart-container');
+                   if (chartContainer) {
+                       chartContainer.innerHTML = '<p style="text-align:center;padding:40px;color:#666;">Chart temporarily unavailable</p>';
+                   }
+               }),
+               renderTopicBubbles(topicElement.value || '', mapDaysElement.value || '30').catch(e => {
+                   console.error('renderTopicBubbles failed:', e);
+                   // Show fallback map content
+                   const mapContainer = document.getElementById('map');
+                   if (mapContainer) {
+                       mapContainer.innerHTML = '<p style="text-align:center;padding:40px;color:#666;">Map temporarily unavailable</p>';
+                   }
+               })
            ]);
            
            // Initialize notification system
