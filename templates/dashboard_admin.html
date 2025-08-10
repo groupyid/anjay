@@ -356,11 +356,9 @@
             <p>Analisis Interaksi Petani & Early Warning System</p>
         </header>
 
-        <!-- Navigation Tabs -->
-        <div class="nav-tabs">
-            <button class="nav-tab active" onclick="showTab('overview')">Overview</button>
-            <button class="nav-tab" onclick="showTab('users')">Manajemen User</button>
-            <button class="nav-tab" onclick="showTab('logs')">System Logs</button>
+        <!-- Single Tab Dashboard -->
+        <div class="nav-tabs" style="display: none;">
+            <button class="nav-tab active">Dashboard</button>
         </div>
 
         <!-- Overview Tab (Original Content) -->
@@ -529,338 +527,23 @@
             </main>
         </div>
 
-        <!-- User Management Tab -->
-        <div id="users" class="tab-content">
-            <div class="stats-grid">
-                <div class="stat-card">
-                    <div class="stat-number" id="total-users">-</div>
-                    <div class="stat-label">Total Users</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="active-users">-</div>
-                    <div class="stat-label">Active Users</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="new-users">-</div>
-                    <div class="stat-label">New Users (30 days)</div>
-                </div>
-                <div class="stat-card">
-                    <div class="stat-number" id="admin-users">-</div>
-                    <div class="stat-label">Admin Users</div>
-                </div>
-            </div>
-
-            <div class="card">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                    <h2>Daftar Users</h2>
-                    <div>
-                        <button class="export-btn" onclick="exportUsers()">📊 Export CSV</button>
-                        <button class="export-btn" onclick="showAddUserModal()">➕ Tambah User</button>
-                    </div>
-                </div>
-                
-                <input type="text" class="search-box" id="userSearch" placeholder="Cari user berdasarkan nama, email, atau wilayah..." onkeyup="filterUsers()">
-                
-                <div id="users-list">
-                    <table class="user-table" id="userTable">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Nama</th>
-                                <th>Email</th>
-                                <th>Role</th>
-                                <th>Wilayah</th>
-                                <th>Tanggal Daftar</th>
-                                <th>Aksi</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Users will be loaded here -->
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
 
 
 
-        <!-- System Logs Tab -->
-        <div id="logs" class="tab-content">
-            <div class="card">
-                <h2>📋 System Activity Logs</h2>
-                <div class="filter-bar">
-                    <div class="filter-group">
-                        <label for="log-type">Tipe Log</label>
-                        <select id="log-type">
-                            <option value="">Semua</option>
-                            <option value="login">Login</option>
-                            <option value="chat">Chat</option>
-                            <option value="admin">Admin Action</option>
-                            <option value="error">Error</option>
-                        </select>
-                    </div>
-                    <div class="filter-group">
-                        <label for="log-days">Periode</label>
-                        <select id="log-days">
-                            <option value="1">1 Hari</option>
-                            <option value="7" selected>7 Hari</option>
-                            <option value="30">30 Hari</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="activity-log" id="activityLog">
-                    <!-- Logs will be loaded here -->
-                </div>
-            </div>
-        </div>
+
+
     </div>
 
-    <!-- Add User Modal -->
-    <div id="addUserModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('addUserModal')">&times;</span>
-            <h2>Tambah User Baru</h2>
-            <form id="addUserForm">
-                <div class="form-group">
-                    <label for="userName">Nama Lengkap</label>
-                    <input type="text" id="userName" name="name" required>
-                </div>
-                <div class="form-group">
-                    <label for="userEmail">Email</label>
-                    <input type="email" id="userEmail" name="email" required>
-                </div>
-                <div class="form-group">
-                    <label for="userPhone">Nomor HP</label>
-                    <input type="tel" id="userPhone" name="phone" required>
-                </div>
-                <div class="form-group">
-                    <label for="userRole">Role</label>
-                    <select id="userRole" name="role" required>
-                        <option value="petani">Petani</option>
-                        <option value="admin">Admin</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="userRegion">Wilayah</label>
-                    <input type="text" id="userRegion" name="region">
-                </div>
-                <div class="form-group">
-                    <label for="userPassword">Password</label>
-                    <input type="password" id="userPassword" name="password" required>
-                </div>
-                <button type="submit" class="export-btn">Simpan User</button>
-            </form>
-        </div>
-    </div>
 
-    <!-- Edit User Modal -->
-    <div id="editUserModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('editUserModal')">&times;</span>
-            <h2>Edit User</h2>
-            <form id="editUserForm">
-                <input type="hidden" id="editUserId" name="id">
-                <div class="form-group">
-                    <label for="editUserName">Nama Lengkap</label>
-                    <input type="text" id="editUserName" name="name" required>
-                </div>
-                <div class="form-group">
-                    <label for="editUserEmail">Email</label>
-                    <input type="email" id="editUserEmail" name="email" required>
-                </div>
-                <div class="form-group">
-                    <label for="editUserPhone">Nomor HP</label>
-                    <input type="tel" id="editUserPhone" name="phone" required>
-                </div>
-                <div class="form-group">
-                    <label for="editUserRole">Role</label>
-                    <select id="editUserRole" name="role" required>
-                        <option value="petani">Petani</option>
-                        <option value="admin">Admin</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="editUserRegion">Wilayah</label>
-                    <input type="text" id="editUserRegion" name="region">
-                </div>
-                <button type="submit" class="export-btn">Update User</button>
-            </form>
-        </div>
-    </div>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <script>
-    // Tab functionality - Optimized
-    function showTab(tabName) {
-        // Hide all tab contents
-        document.querySelectorAll('.tab-content').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        
-        // Remove active class from all tabs
-        document.querySelectorAll('.nav-tab').forEach(tab => {
-            tab.classList.remove('active');
-        });
-        
-        // Show selected tab content
-        document.getElementById(tabName).classList.add('active');
-        
-        // Add active class to clicked tab
-        event.target.classList.add('active');
-        
-        // Load content based on tab - OPTIMIZED
-        if (tabName === 'users') {
-            // Use Promise.all for parallel loading
-            Promise.all([loadUsers(), loadUserStats()]);
-        } else if (tabName === 'analytics') {
-            // Destroy existing charts immediately
-            if (registrationChart) {
-                registrationChart.destroy();
-                registrationChart = null;
-            }
-            if (regionActivityChart) {
-                regionActivityChart.destroy();
-                regionActivityChart = null;
-            }
-            
-            // Load analytics immediately
-            loadAnalytics();
-        } else if (tabName === 'logs') {
-            loadSystemLogs();
-        } else if (tabName === 'overview') {
-            // Initialize map immediately if not exists
-            if (!map) {
-                initMap();
-            } else {
-                // Refresh map size immediately
-                map.invalidateSize();
-                // Refresh bubbles immediately
-                renderTopicBubbles(topicEl?.value || '', mapDaysEl?.value || '30');
-            }
-        }
-    }
+    // Single dashboard - no tabs needed
+    // Initialize dashboard content on load
 
-    // User Management Functions
-    async function loadUsers() {
-        try {
-            const response = await fetch('/api/admin/users');
-            const data = await response.json();
-            
-            if (data.error) {
-                throw new Error(data.error);
-            }
-            
-            const tbody = document.querySelector('#userTable tbody');
-            tbody.innerHTML = '';
-            
-            data.users.forEach(user => {
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td>${user.id}</td>
-                    <td>${user.name}</td>
-                    <td>${user.email}</td>
-                    <td><span class="badge ${user.role === 'admin' ? 'badge-admin' : 'badge-user'}">${user.role}</span></td>
-                    <td>${user.region || '-'}</td>
-                    <td>${new Date(user.created_at).toLocaleDateString('id-ID')}</td>
-                    <td>
-                        <button class="action-btn btn-view" onclick="viewUser(${user.id})">👁️</button>
-                        <button class="action-btn btn-edit" onclick="editUser(${user.id})">✏️</button>
-                        <button class="action-btn btn-delete" onclick="deleteUser(${user.id})">🗑️</button>
-                    </td>
-                `;
-                tbody.appendChild(row);
-            });
-        } catch (error) {
-            console.error('Error loading users:', error);
-            showAlert('Gagal memuat data users', 'danger');
-        }
-    }
-
-    async function loadUserStats() {
-        try {
-            const response = await fetch('/api/admin/user-stats');
-            const data = await response.json();
-            
-            document.getElementById('total-users').textContent = data.total_users || 0;
-            document.getElementById('active-users').textContent = data.active_users || 0;
-            document.getElementById('new-users').textContent = data.new_users || 0;
-            document.getElementById('admin-users').textContent = data.admin_users || 0;
-        } catch (error) {
-            console.error('Error loading user stats:', error);
-        }
-    }
-
-    function filterUsers() {
-        const searchTerm = document.getElementById('userSearch').value.toLowerCase();
-        const rows = document.querySelectorAll('#userTable tbody tr');
-        
-        rows.forEach(row => {
-            const text = row.textContent.toLowerCase();
-            row.style.display = text.includes(searchTerm) ? '' : 'none';
-        });
-    }
-
-    function showAddUserModal() {
-        document.getElementById('addUserModal').style.display = 'block';
-    }
-
-    function closeModal(modalId) {
-        document.getElementById(modalId).style.display = 'none';
-    }
-
-    async function editUser(userId) {
-        try {
-            const response = await fetch(`/api/admin/users/${userId}`);
-            const data = await response.json();
-            
-            if (data.error) {
-                throw new Error(data.error);
-            }
-            
-            const user = data.user;
-            document.getElementById('editUserId').value = user.id;
-            document.getElementById('editUserName').value = user.name;
-            document.getElementById('editUserEmail').value = user.email;
-            document.getElementById('editUserPhone').value = user.phone;
-            document.getElementById('editUserRole').value = user.role;
-            document.getElementById('editUserRegion').value = user.region || '';
-            
-            document.getElementById('editUserModal').style.display = 'block';
-        } catch (error) {
-            console.error('Error loading user:', error);
-            showAlert('Gagal memuat data user', 'danger');
-        }
-    }
-
-    async function deleteUser(userId) {
-        if (!confirm('Apakah Anda yakin ingin menghapus user ini?')) {
-            return;
-        }
-        
-        try {
-            const response = await fetch(`/api/admin/users/${userId}`, {
-                method: 'DELETE'
-            });
-            const data = await response.json();
-            
-            if (data.error) {
-                throw new Error(data.error);
-            }
-            
-            showAlert('User berhasil dihapus', 'success');
-            loadUsers();
-            loadUserStats();
-        } catch (error) {
-            console.error('Error deleting user:', error);
-            showAlert('Gagal menghapus user', 'danger');
-        }
-    }
-
-    function exportUsers() {
-        window.open('/api/admin/export-users', '_blank');
-    }
+    // Utility Functions
 
     function showAlert(message, type) {
         const alertDiv = document.createElement('div');
@@ -875,7 +558,7 @@
         }, 5000);
     }
 
-         // Analytics Functions - Optimized
+    // Essential Functions Only
      async function loadAnalytics() {
          try {
              const response = await fetch('/api/admin/analytics');

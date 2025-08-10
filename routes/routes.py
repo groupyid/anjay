@@ -1184,30 +1184,7 @@ def register_routes(app):
 
     # New API routes for enhanced admin functionality
     
-    @app.route('/api/admin/users', methods=['GET'])
-    def api_admin_users():
-        if 'user_id' not in session or session.get('user_role') != 'admin':
-            return jsonify({'error': 'Unauthorized'}), 401
-        
-        from .models import User
-        try:
-            users = User.query.order_by(User.created_at.desc()).all()
-            users_data = []
-            for user in users:
-                users_data.append({
-                    'id': user.id,
-                    'name': user.name,
-                    'email': user.email,
-                    'phone': user.phone,
-                    'role': user.role,
-                    'region': user.region,
-                    'created_at': user.created_at.isoformat(),
-                    'latitude': user.latitude,
-                    'longitude': user.longitude
-                })
-            return jsonify({'users': users_data})
-        except Exception as e:
-            return jsonify({'error': str(e)}), 500
+
 
     @app.route('/api/admin/users/<int:user_id>', methods=['GET'])
     def api_admin_get_user(user_id):
