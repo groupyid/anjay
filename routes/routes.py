@@ -883,51 +883,27 @@ def register_routes(app):
         if region_filter:
             query = query.filter(User.region == region_filter)
         elif province_id:
-            # Get all regency names for the selected province
+            # SIMPLE ID-BASED FILTERING (New normalized approach)
             try:
                 pid_int = int(province_id)
-                regency_names = [r.name for r in Regency.query.filter_by(province_id=pid_int).all()]
+                print(f"DEBUG: Simple province filter - province_id={pid_int}")
                 
-                # Debug logging
-                print(f"DEBUG: province_id={province_id}, regency_names count={len(regency_names)}")
-                if regency_names:
-                    print(f"DEBUG: First 5 regency names: {regency_names[:5]}")
+                # Primary strategy: Use province_id foreign key (new normalized data)
+                id_based_query = query.filter(User.province_id == pid_int)
+                id_count = id_based_query.count()
+                print(f"DEBUG: Found {id_count} chats using province_id FK")
                 
-                if regency_names:
-                    # Strategy 1: Exact match with regency names
-                    query = query.filter(User.region.in_(regency_names))
-                    print(f"DEBUG: Found {query.count()} chats with exact regency match")
-                    
-                    # Strategy 2: If no exact match, try fuzzy matching with province name and aliases
-                    if query.count() == 0:
-                        province = Province.query.get(pid_int)
-                        if province:
-                            province_name = province.name.lower()
-                            
-                            # Build search conditions with aliases
-                            search_conditions = [db.func.lower(User.region).contains(province_name)]
-                            
-                            # Special handling for Jakarta
-                            if 'jakarta' in province_name or 'dki' in province_name:
-                                jakarta_aliases = ['jakarta', 'dki jakarta', 'dki', 'jakarta pusat', 
-                                                 'jakarta utara', 'jakarta selatan', 'jakarta timur', 'jakarta barat']
-                                for alias in jakarta_aliases:
-                                    search_conditions.append(db.func.lower(User.region).contains(alias))
-                                print(f"DEBUG: Added Jakarta aliases for search")
-                            
-                            # Apply fuzzy search with OR conditions
-                            query = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
-                                .filter(db.or_(*search_conditions))
-                            if start_time:
-                                query = query.filter(ChatHistory.created_at >= start_time)
-                            print(f"DEBUG: Fuzzy match found {query.count()} chats for province '{province_name}' with aliases")
+                if id_count > 0:
+                    # Use ID-based query if we have normalized data
+                    query = id_based_query
                 else:
-                    # If no regencies found, try fallback with province name and aliases
+                    # Fallback to text-based search for legacy data
+                    print(f"DEBUG: No FK data found, falling back to text search")
                     province = Province.query.get(pid_int)
                     if province:
                         province_name = province.name.lower()
                         
-                        # Build search conditions with aliases
+                        # Build search conditions with aliases for backward compatibility
                         search_conditions = [db.func.lower(User.region).contains(province_name)]
                         
                         # Special handling for Jakarta
@@ -936,20 +912,21 @@ def register_routes(app):
                                              'jakarta utara', 'jakarta selatan', 'jakarta timur', 'jakarta barat']
                             for alias in jakarta_aliases:
                                 search_conditions.append(db.func.lower(User.region).contains(alias))
-                            print(f"DEBUG: Fallback added Jakarta aliases")
+                            print(f"DEBUG: Added Jakarta aliases for backward compatibility")
                         
-                        # Apply fallback search with OR conditions
+                        # Apply text search with OR conditions
                         query = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
                             .filter(db.or_(*search_conditions))
                         if start_time:
                             query = query.filter(ChatHistory.created_at >= start_time)
-                        print(f"DEBUG: Fallback strategy found {query.count()} chats for province '{province_name}' with aliases")
+                        print(f"DEBUG: Text fallback found {query.count()} chats for province '{province_name}'")
                     else:
                         query = query.filter(False) # No results
-                        print(f"DEBUG: No regencies and no province found for ID {province_id}")
+                        print(f"DEBUG: Province {province_id} not found")
             except ValueError:
                 # Invalid province_id, return empty result
                 query = query.filter(False) # No results
+                print(f"DEBUG: Invalid province_id: {province_id}")
                 print(f"DEBUG: Invalid province_id: {province_id}")
             except Exception as e:
                 # Handle any other database errors
@@ -1125,33 +1102,39 @@ def register_routes(app):
                 query = query.filter(User.region.ilike(f'%{region_filter}%'))
             
             if province_id:
-                from .models import Regency, Province
-                regencies = Regency.query.filter_by(province_id=province_id).all()
-                regency_names = [r.name.replace('KABUPATEN ', '').replace('KOTA ', '') for r in regencies]
-                print(f"DEBUG: Found {len(regencies)} regencies for province {province_id}: {regency_names}")
+                print(f"DEBUG: Topic distribution filter - province_id={province_id}")
                 
-                # Add province name aliases for better matching
-                province = Province.query.get(province_id)
-                province_aliases = []
-                if province:
-                    province_name = province.name
-                    province_aliases.append(province_name)
-                    
-                    # Special handling for Jakarta
-                    if 'Jakarta' in province_name or 'DKI' in province_name:
-                        province_aliases.extend(['Jakarta', 'DKI Jakarta', 'DKI', 'Jakarta Pusat', 
-                                               'Jakarta Utara', 'Jakarta Selatan', 'Jakarta Timur', 'Jakarta Barat'])
-                        print(f"DEBUG: Added Jakarta aliases: {province_aliases}")
+                # Primary strategy: Use province_id foreign key (new normalized data)
+                id_based_query = query.filter(User.province_id == province_id)
+                id_count = id_based_query.count()
+                print(f"DEBUG: Found {id_count} chats using province_id FK")
                 
-                # Combine regency names and province aliases
-                all_search_terms = regency_names + province_aliases
-                print(f"DEBUG: All search terms for province {province_id}: {all_search_terms}")
-                
-                if all_search_terms:
-                    conditions = [User.region.ilike(f'%{name}%') for name in all_search_terms]
-                    query = query.filter(db.or_(*conditions))
+                if id_count > 0:
+                    # Use ID-based query if we have normalized data
+                    query = id_based_query
                 else:
-                    query = query.filter(User.region == '__NO_MATCH__')  # No results if no regencies
+                    # Fallback to text-based search for legacy data
+                    print(f"DEBUG: No FK data found, falling back to text search")
+                    from .models import Province
+                    province = Province.query.get(province_id)
+                    
+                    if province:
+                        province_name = province.name
+                        province_aliases = [province_name]
+                        
+                        # Special handling for Jakarta
+                        if 'Jakarta' in province_name or 'DKI' in province_name:
+                            province_aliases.extend(['Jakarta', 'DKI Jakarta', 'DKI', 'Jakarta Pusat', 
+                                                   'Jakarta Utara', 'Jakarta Selatan', 'Jakarta Timur', 'Jakarta Barat'])
+                            print(f"DEBUG: Added Jakarta aliases: {province_aliases}")
+                        
+                        print(f"DEBUG: Text search terms for province {province_id}: {province_aliases}")
+                        
+                        # Apply text-based search with aliases
+                        conditions = [User.region.ilike(f'%{name}%') for name in province_aliases]
+                        query = query.filter(db.or_(*conditions))
+                    else:
+                        query = query.filter(User.region == '__NO_MATCH__')  # No results if province not found
             
             chats = query.all()
             print(f"DEBUG: Found {len(chats)} chats matching criteria")

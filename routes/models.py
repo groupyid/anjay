@@ -14,11 +14,17 @@ class User(db.Model):
     phone = db.Column(db.String(20), nullable=False)
     password = db.Column(db.String(255), nullable=False)
     role = db.Column(db.String(20), default='petani')
-    region = db.Column(db.String(100))
+    region = db.Column(db.String(100))  # Keep for backward compatibility
+    province_id = db.Column(db.Integer, db.ForeignKey('province.id'), nullable=True)
+    regency_id = db.Column(db.Integer, db.ForeignKey('regency.id'), nullable=True)
     profile_pic = db.Column(db.String(255))
     latitude = db.Column(db.Float)
     longitude = db.Column(db.Float)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    
+    # Relationships
+    province = db.relationship('Province', backref=db.backref('users', lazy=True))
+    regency = db.relationship('Regency', backref=db.backref('users', lazy=True))
 
 
 
