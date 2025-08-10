@@ -1448,17 +1448,157 @@
          }
      }
 
-     // Override the existing showAlert function to use the notification system
-     function showAlert(message, type) {
-         const typeMap = {
-             'success': 'success',
-             'danger': 'error',
-             'warning': 'warning',
-             'info': 'info'
-         };
-         
-         showNotification(typeMap[type] || 'info', 'Alert', message, true);
-     }
-     </script>
+         // Override the existing showAlert function to use the notification system
+    function showAlert(message, type) {
+        const typeMap = {
+            'success': 'success',
+            'danger': 'error',
+            'warning': 'warning',
+            'info': 'info'
+        };
+        
+        showNotification(typeMap[type] || 'info', 'Alert', message, true);
+    }
+
+    // Enhanced responsive table functionality
+    function makeTablesResponsive() {
+        const tables = document.querySelectorAll('table:not(.responsive-wrapped)');
+        
+        tables.forEach(table => {
+            // Skip if already wrapped
+            if (table.parentElement.classList.contains('table-responsive')) return;
+            
+            // Create responsive wrapper
+            const wrapper = document.createElement('div');
+            wrapper.className = 'table-responsive';
+            
+            // Insert wrapper before table and move table inside
+            table.parentNode.insertBefore(wrapper, table);
+            wrapper.appendChild(table);
+            
+            // Mark as wrapped
+            table.classList.add('responsive-wrapped');
+            
+            // Add horizontal scroll indicator for mobile
+            if (window.innerWidth <= 768) {
+                addScrollIndicator(wrapper);
+            }
+        });
+    }
+
+    function addScrollIndicator(wrapper) {
+        const table = wrapper.querySelector('table');
+        if (!table) return;
+        
+        const indicator = document.createElement('div');
+        indicator.className = 'scroll-indicator';
+        indicator.innerHTML = '← Geser untuk melihat data lengkap →';
+        indicator.style.cssText = `
+            text-align: center;
+            padding: 8px;
+            font-size: 12px;
+            color: #666;
+            background: #f8f9fa;
+            border-top: 1px solid #e9ecef;
+            display: none;
+        `;
+        
+        wrapper.appendChild(indicator);
+        
+        // Show indicator if table is scrollable
+        if (table.scrollWidth > wrapper.clientWidth) {
+            indicator.style.display = 'block';
+        }
+        
+        // Hide indicator when scrolled to end
+        wrapper.addEventListener('scroll', () => {
+            const scrollLeft = wrapper.scrollLeft;
+            const scrollWidth = wrapper.scrollWidth;
+            const clientWidth = wrapper.clientWidth;
+            
+            if (scrollLeft + clientWidth >= scrollWidth - 10) {
+                indicator.style.display = 'none';
+            } else {
+                indicator.style.display = 'block';
+            }
+        });
+    }
+
+    // Mobile-friendly touch improvements
+    function enhanceMobileInteractions() {
+        // Improve button touch targets
+        const buttons = document.querySelectorAll('.action-btn');
+        buttons.forEach(btn => {
+            btn.style.minHeight = '44px';
+            btn.style.minWidth = '44px';
+        });
+        
+        // Add touch feedback to clickable elements
+        const clickableElements = document.querySelectorAll('button, .action-btn, .nav-tab, .stat-card');
+        clickableElements.forEach(element => {
+            element.addEventListener('touchstart', function() {
+                this.style.opacity = '0.7';
+            });
+            
+            element.addEventListener('touchend', function() {
+                setTimeout(() => {
+                    this.style.opacity = '';
+                }, 150);
+            });
+        });
+    }
+
+    // Enhanced window resize handler
+    function handleWindowResize() {
+        // Re-check table responsiveness
+        makeTablesResponsive();
+        
+        // Update chart responsiveness
+        if (typeof trendChart !== 'undefined' && trendChart) {
+            trendChart.resize();
+        }
+        
+        // Update map responsiveness
+        if (typeof map !== 'undefined' && map) {
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 250);
+        }
+    }
+
+    // Initialize responsive enhancements
+    document.addEventListener('DOMContentLoaded', function() {
+        makeTablesResponsive();
+        enhanceMobileInteractions();
+        
+        // Add resize listener with debouncing
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(handleWindowResize, 250);
+        });
+        
+        // Check for tables added dynamically
+        const observer = new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'childList') {
+                    mutation.addedNodes.forEach((node) => {
+                        if (node.nodeType === 1) { // Element node
+                            const tables = node.querySelectorAll ? node.querySelectorAll('table') : [];
+                            if (tables.length > 0) {
+                                makeTablesResponsive();
+                            }
+                        }
+                    });
+                }
+            });
+        });
+        
+        observer.observe(document.body, {
+            childList: true,
+            subtree: true
+        });
+    });
+    </script>
 </body>
 </html>

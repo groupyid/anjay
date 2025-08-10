@@ -342,7 +342,22 @@ button:hover {
     box-shadow: 0 0 20px rgba(0, 198, 118, 0.3);
 }
 
-/* Consolidated Media Query for Mobile */
+/* Enhanced Mobile Responsive Design */
+@media (max-width: 1200px) {
+    .login-gede {
+        width: 90%;
+        padding: 1.5rem;
+    }
+    
+    .logo-container {
+        padding: 3rem 2rem;
+    }
+    
+    .container-split {
+        padding: 3rem 2rem;
+    }
+}
+
 @media (max-width: 900px) {
     body {
         align-items: flex-start;
@@ -356,7 +371,9 @@ button:hover {
         flex-direction: column;
         width: 95%;
         height: auto;
-        padding: 2rem 0;
+        padding: 1.5rem 0;
+        border-radius: 20px;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
     }
 
     .logo-container {
@@ -367,12 +384,14 @@ button:hover {
         flex-direction: column;
         align-items: center;
         justify-content: center;
+        border-radius: 20px 20px 0 0;
     }
 
     .container-split {
         width: 100%;
         height: auto;
         padding: 2rem 1rem;
+        border-radius: 0 0 20px 20px;
         /* display: flex; */ /* REMOVED - will be handled by JS adding visible-flex */
     }
 
@@ -382,33 +401,266 @@ button:hover {
 
     .btn-lanjut {
         display: block; /* Show continue button on mobile */
+        padding: 14px 28px;
+        font-size: 1rem;
+        border-radius: 12px;
+        margin-top: 1.5rem;
     }
 
     .paragraf {
         width: 90%;
+        font-size: 0.95rem;
+        line-height: 1.6;
     }
 
     .prompt-carousel {
         border-radius: 16px; 
         width: 90%;
-        height: 120px;
+        height: 130px;
+        margin: 1.5rem 0;
     }
 
     .prompt-slide {
-        height: 100px;
-        padding: 15px;
+        height: 110px;
+        padding: 16px;
     }
 
     .text-prompt {
         font-size: 0.85rem;
+        line-height: 1.4;
+    }
+
+    .category-label {
+        font-size: 0.7rem;
+        padding: 4px 8px;
+        margin-bottom: 8px;
     }
 
     .login-container {
         padding: 25px;
+        border-radius: 16px;
+    }
+
+    .login-form-logo {
+        width: 60px;
+        height: 60px;
+        margin-bottom: 1rem;
     }
 
     h2 {
         font-size: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1.2rem;
+    }
+    
+    .form-group input {
+        padding: 14px 16px;
+        font-size: 0.95rem;
+        border-radius: 10px;
+    }
+    
+    .btn-login {
+        padding: 14px;
+        font-size: 1rem;
+        border-radius: 10px;
+        margin-top: 1rem;
+    }
+    
+    .form-links {
+        margin-top: 1.5rem;
+    }
+    
+    .form-links a {
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 600px) {
+    body {
+        padding: 10px 0;
+    }
+    
+    .login-gede {
+        width: 98%;
+        padding: 1rem 0;
+        margin: 10px;
+        border-radius: 16px;
+    }
+    
+    .logo-container {
+        padding: 1.5rem 0.5rem;
+        border-radius: 16px 16px 0 0;
+    }
+    
+    .container-split {
+        padding: 1.5rem 0.5rem;
+        border-radius: 0 0 16px 16px;
+    }
+    
+    h1 {
+        font-size: 2rem;
+        margin: 0.5rem 0;
+    }
+    
+    .paragraf {
+        width: 95%;
+        font-size: 0.9rem;
+        margin: 1rem 0;
+    }
+    
+    .prompt-carousel {
+        width: 95%;
+        height: 120px;
+        margin: 1rem 0;
+    }
+    
+    .prompt-slide {
+        height: 100px;
+        padding: 12px;
+    }
+    
+    .text-prompt {
+        font-size: 0.8rem;
+    }
+    
+    .category-label {
+        font-size: 0.65rem;
+        padding: 3px 6px;
+    }
+    
+    .btn-lanjut {
+        padding: 12px 24px;
+        font-size: 0.95rem;
+        margin-top: 1rem;
+    }
+    
+    .login-container {
+        padding: 20px 15px;
+    }
+    
+    .login-form-logo {
+        width: 50px;
+        height: 50px;
+    }
+    
+    h2 {
+        font-size: 1.3rem;
+        margin-bottom: 1.2rem;
+    }
+    
+    .form-group input {
+        padding: 12px 14px;
+        font-size: 0.9rem;
+        border-radius: 8px;
+    }
+    
+    .btn-login {
+        padding: 12px;
+        font-size: 0.95rem;
+        border-radius: 8px;
+    }
+    
+    .form-links a {
+        font-size: 0.85rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .login-gede {
+        width: 99%;
+        margin: 5px;
+        border-radius: 12px;
+    }
+    
+    .logo-container {
+        padding: 1rem 0.5rem;
+        border-radius: 12px 12px 0 0;
+    }
+    
+    .container-split {
+        padding: 1rem 0.5rem;
+        border-radius: 0 0 12px 12px;
+    }
+    
+    h1 {
+        font-size: 1.8rem;
+    }
+    
+    .paragraf {
+        font-size: 0.85rem;
+        width: 98%;
+    }
+    
+    .prompt-carousel {
+        width: 98%;
+        height: 110px;
+    }
+    
+    .prompt-slide {
+        height: 90px;
+        padding: 10px;
+    }
+    
+    .text-prompt {
+        font-size: 0.75rem;
+        line-height: 1.3;
+    }
+    
+    .category-label {
+        font-size: 0.6rem;
+        padding: 2px 5px;
+    }
+    
+    .btn-lanjut {
+        padding: 10px 20px;
+        font-size: 0.9rem;
+        border-radius: 8px;
+    }
+    
+    .login-container {
+        padding: 15px 10px;
+    }
+    
+    .login-form-logo {
+        width: 45px;
+        height: 45px;
+    }
+    
+    h2 {
+        font-size: 1.2rem;
+        margin-bottom: 1rem;
+    }
+    
+    .form-group {
+        margin-bottom: 1rem;
+    }
+    
+    .form-group input {
+        padding: 10px 12px;
+        font-size: 0.85rem;
+        border-radius: 6px;
+    }
+    
+    .btn-login {
+        padding: 10px;
+        font-size: 0.9rem;
+        border-radius: 6px;
+    }
+    
+    .form-links {
+        margin-top: 1rem;
+    }
+    
+    .form-links a {
+        font-size: 0.8rem;
+    }
+    
+    /* Improve swiper navigation for touch */
+    .swiper-container {
+        padding: 0 5px;
     }
 }
 

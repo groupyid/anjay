@@ -755,20 +755,209 @@ ul, ol {
     color: white;
 }
 
-/* === RESPONSIVE ENHANCEMENTS === */
+/* === ENHANCED RESPONSIVE DESIGN === */
+
+/* Mobile navigation */
+.mobile-nav-toggle {
+    display: none;
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--primary-color);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 8px;
+    transition: var(--transition);
+}
+
+.mobile-nav-toggle:hover {
+    background-color: rgba(46, 125, 50, 0.1);
+}
+
+/* Enhanced table responsiveness */
+.table-responsive {
+    overflow-x: auto;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow);
+    margin-bottom: 24px;
+    -webkit-overflow-scrolling: touch;
+}
+
+.user-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0;
+    background: white;
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    min-width: 700px; /* Prevent over-compression */
+}
+
+.user-table th,
+.user-table td {
+    padding: 16px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+
+.user-table th {
+    background: linear-gradient(135deg, #f8f9fa, #e9ecef);
+    font-weight: 600;
+    color: var(--text-color);
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.user-table tr:hover {
+    background-color: rgba(46, 125, 50, 0.05);
+    transition: var(--transition);
+}
+
+/* Enhanced action buttons */
+.action-btn {
+    padding: 8px 12px;
+    border-radius: 6px;
+    border: none;
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin: 0 2px;
+    min-height: 32px;
+    min-width: 60px;
+}
+
+.btn-edit {
+    background: linear-gradient(135deg, #ffc107, #ff9800);
+    color: white;
+}
+
+.btn-edit:hover {
+    background: linear-gradient(135deg, #ff9800, #f57c00);
+    transform: translateY(-1px);
+}
+
+.btn-delete {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+    color: white;
+}
+
+.btn-delete:hover {
+    background: linear-gradient(135deg, #c82333, #a71e2a);
+    transform: translateY(-1px);
+}
+
+/* Modal improvements */
+.modal-content {
+    background: white;
+    border-radius: var(--border-radius);
+    padding: 32px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: fadeInUp 0.3s ease-out;
+}
+
+/* Responsive breakpoints */
+@media (max-width: 1400px) {
+    .dashboard-container {
+        max-width: 1200px;
+        padding: 0 20px;
+    }
+    
+    .stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
 @media (max-width: 1200px) {
+    .dashboard-container {
+        padding: 0 16px;
+    }
+    
     .dashboard-grid {
         grid-template-columns: 1fr;
     }
     
     .stats-grid {
-        grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+
+    .chart-container {
+        height: 350px;
+        padding: 16px;
+    }
+    
+    .map-container {
+        height: 400px;
+    }
+}
+
+@media (max-width: 992px) {
+    body {
+        padding: 16px;
+    }
+    
+    .dashboard-header {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    
+    .logout-container {
+        position: static;
+        margin-bottom: 16px;
+        text-align: center;
+    }
+    
+    .nav-tabs {
+        flex-direction: column;
+        gap: 4px;
+    }
+    
+    .nav-tab {
+        padding: 12px 16px;
+        font-size: 14px;
+    }
+    
+    .filter-bar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 16px;
+    }
+    
+    .filter-group {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .filter-group label {
+        min-width: auto;
+        margin-bottom: 4px;
+    }
+    
+    .card {
+        padding: 20px;
+    }
+    
+    .modal-content {
+        padding: 24px;
+        width: 95%;
     }
 }
 
 @media (max-width: 768px) {
     body {
-        padding: 16px;
+        padding: 12px;
     }
 
     .dashboard-header {
@@ -777,46 +966,11 @@ ul, ol {
 
     .dashboard-header h1 {
         font-size: 2em;
+        margin-bottom: 8px;
     }
 
     .dashboard-header p {
         font-size: 1em;
-    }
-
-    .nav-tabs {
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .nav-tab {
-        padding: 12px 16px;
-        font-size: 14px;
-    }
-
-    .filter-bar {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 12px;
-    }
-
-    .filter-group {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .filter-group label {
-        min-width: auto;
-        margin-bottom: 4px;
-    }
-
-    .logout-container {
-        position: static;
-        margin-bottom: 16px;
-        text-align: right;
-    }
-
-    .card {
-        padding: 20px;
     }
 
     .stats-grid {
@@ -826,6 +980,7 @@ ul, ol {
 
     .stat-card {
         padding: 20px;
+        text-align: center;
     }
 
     .stat-number {
@@ -834,6 +989,7 @@ ul, ol {
 
     .user-table {
         font-size: 14px;
+        min-width: 600px;
     }
 
     .user-table th,
@@ -843,48 +999,116 @@ ul, ol {
 
     .action-btn {
         padding: 6px 8px;
-        margin: 0 2px;
-        font-size: 12px;
+        margin: 1px;
+        font-size: 11px;
+        min-width: 50px;
     }
 
     .chart-container {
         height: 300px;
+        padding: 12px;
     }
 
     .map-container {
         height: 350px;
     }
+    
+    .card {
+        padding: 16px;
+    }
+    
+    .table-responsive {
+        margin-bottom: 16px;
+    }
+    
+    /* Stack action buttons on small screens */
+    .action-buttons {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
 }
 
 @media (max-width: 480px) {
+    body {
+        padding: 8px;
+    }
+    
     .dashboard-header h1 {
         font-size: 1.8em;
     }
 
     .stats-grid {
         grid-template-columns: 1fr;
+        gap: 12px;
     }
 
     .filter-group select {
         width: 100%;
         min-width: auto;
+        padding: 12px;
+        font-size: 14px;
     }
 
     .modal-content {
-        margin: 10% auto;
-        padding: 24px;
-        width: 95%;
+        margin: 5% auto;
+        padding: 20px;
+        width: 98%;
     }
 
     .export-btn {
         width: 100%;
         justify-content: center;
         margin-bottom: 12px;
+        padding: 12px;
+        font-size: 0.9rem;
     }
 
     .user-table {
-        display: block;
-        overflow-x: auto;
-        white-space: nowrap;
+        font-size: 12px;
+        min-width: 500px;
+    }
+    
+    .user-table th,
+    .user-table td {
+        padding: 8px 6px;
+    }
+
+    .action-btn {
+        padding: 4px 6px;
+        font-size: 10px;
+        margin: 1px;
+        min-width: 40px;
+        min-height: 28px;
+    }
+    
+    .chart-container {
+        height: 250px;
+        padding: 8px;
+    }
+    
+    .map-container {
+        height: 300px;
+    }
+    
+    .card {
+        padding: 12px;
+    }
+    
+    .nav-tab {
+        padding: 10px 12px;
+        font-size: 12px;
+    }
+    
+    /* Improve touch targets */
+    .btn-edit,
+    .btn-delete {
+        margin: 2px 1px;
+    }
+    
+    /* Better mobile table experience */
+    .table-responsive {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        border-radius: 8px;
     }
 }
