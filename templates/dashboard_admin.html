@@ -368,6 +368,19 @@
                 <p>Timestamp: <span id="timestamp"></span></p>
             </div>
             
+            <!-- DEBUG INFO FOR DKI JAKARTA -->
+            <div style="background: #28a745; color: white; padding: 15px; margin: 10px 0; border-radius: 8px;">
+                <h3>🔍 Debug Info for DKI Jakarta</h3>
+                <p><strong>Instructions:</strong></p>
+                <ol style="text-align: left; margin-left: 20px;">
+                    <li>Pilih "DKI Jakarta" di dropdown provinsi</li>
+                    <li>Buka browser console (F12)</li>
+                    <li>Lihat log messages untuk API calls dan responses</li>
+                    <li>Check if data contains Jakarta information</li>
+                </ol>
+                <p><strong>Expected Logs:</strong> 🏙️ Province changed → 📊 Chart API call → 🗺️ Map API call → API responses</p>
+            </div>
+            
             <script>
                 document.getElementById('timestamp').textContent = new Date().toLocaleString('id-ID');
                 console.log('🚨 EMERGENCY TEST: Dashboard HTML loaded at', new Date());
@@ -834,10 +847,20 @@
              const region = regionElement?.value || '';
              const provinceId = provinceElement?.value || '';
              const timeRange = timeRangeElement?.value || '1_week';
+             
+             console.log(`📊 Chart parameters:`, {
+                 period, days, region, provinceId, timeRange,
+                 hasProvinceElement: !!provinceElement,
+                 provinceElementValue: provinceElement?.value
+             });
              const params = new URLSearchParams({ period, days, region, province_id: provinceId, time_range: timeRange }); // Add time_range
+             console.log(`📊 Chart API call: /api/admin/trends?${params.toString()}`);
+             
              const res = await fetch(`/api/admin/trends?${params.toString()}`);
              if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
              const data = await res.json();
+             
+             console.log(`📊 Chart API response for province ${provinceId}:`, data);
              if (data.error) throw new Error(data.error);
              
              const labels = data.labels || [];
@@ -996,7 +1019,7 @@
          const topicParam = topic || '';
          const params = new URLSearchParams({ topic: topicParam, days, region, province_id: provinceId, time_range: timeRange }); // Add time_range
          
-         console.log('Fetching topic distribution with params:', params.toString());
+         console.log(`🗺️ Map API call: /api/admin/topic-distribution?${params.toString()}`);
          
                    try {
               const res = await fetch(`/api/admin/topic-distribution?${params.toString()}`);
@@ -1005,6 +1028,8 @@
                   throw new Error(`HTTP ${res.status}: ${errorText}`);
               }
               const json = await res.json();
+              
+              console.log(`🗺️ Map API response for province ${provinceId}:`, json);
               
               if (json.error) {
                   throw new Error(json.error);
@@ -1283,11 +1308,22 @@
            if (provinceElement) {
                provinceElement.addEventListener('change', async () => {
                    const pid = provinceElement.value;
+                   const selectedOption = provinceElement.options[provinceElement.selectedIndex];
+                   const provinceName = selectedOption ? selectedOption.text : 'Unknown';
+                   
+                   console.log(`🏙️ Province changed: ${provinceName} (ID: ${pid})`);
+                   
                    await populateRegencies(pid);
                    if (regionElement) regionElement.value = '';
                    history.replaceState(null, '', `${window.location.pathname}?province_id=${pid}`);
+                   
+                   console.log(`📊 Loading chart for province: ${provinceName}`);
                    await loadTrendChart();
+                   
+                   console.log(`🗺️ Loading map for province: ${provinceName}`);
                    await renderTopicBubbles(topicElement.value || '', mapDaysElement.value || '30');
+                   
+                   console.log(`✅ Finished loading data for province: ${provinceName}`);
                });
            }
            
