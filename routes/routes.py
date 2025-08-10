@@ -1,4 +1,4 @@
-from flask import request, render_template, jsonify, session, redirect, url_for
+from flask import request, render_template, jsonify, session, redirect, url_for, send_from_directory
 import requests
 from werkzeug.security import check_password_hash, generate_password_hash
 import logging
@@ -137,6 +137,11 @@ def register_routes(app):
             session_id = sessions[0]['session_id']
             chats = ChatHistory.query.filter_by(session_id=session_id, user_id=user_id).order_by(ChatHistory.created_at).all()
         return render_template('index.html', sessions=sessions, active_session=session_id, active_chats=chats)
+
+    @app.route('/test_dashboard')
+    def test_dashboard():
+        """Simple test dashboard to verify basic functionality"""
+        return send_from_directory('.', 'test_dashboard.html')
 
     @app.route('/dashboard_admin')
     def dashboard_admin():

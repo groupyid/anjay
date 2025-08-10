@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-box { 
+            border: 2px solid #007bff; 
+            padding: 20px; 
+            margin: 10px 0; 
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        .chart-container {
+            height: 300px;
+            border: 1px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            margin: 10px 0;
+        }
+        .map-container {
+            height: 400px;
+            border: 1px dashed #ccc;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔧 Dashboard Test Page</h1>
+    
+    <div class="test-box">
+        <h2>1. Basic HTML Test</h2>
+        <p>✅ If you can read this, HTML is working!</p>
+    </div>
+    
+    <div class="test-box">
+        <h2>2. Province Dropdown Test</h2>
+        <label for="test-province">Provinsi:</label>
+        <select id="test-province">
+            <option value="">Pilih Provinsi</option>
+            <option value="1">Aceh</option>
+            <option value="2">Sumatra Utara</option>
+            <option value="3">Jakarta</option>
+        </select>
+        <p id="province-result">Select a province to test</p>
+    </div>
+    
+    <div class="test-box">
+        <h2>3. Chart Container Test</h2>
+        <div class="chart-container">
+            <div>📊 Chart area - This should be visible</div>
+        </div>
+    </div>
+    
+    <div class="test-box">
+        <h2>4. Map Container Test</h2>
+        <div class="map-container">
+            <div>🗺️ Map area - This should be visible</div>
+        </div>
+    </div>
+    
+    <div class="test-box">
+        <h2>5. JavaScript Test</h2>
+        <button onclick="testJS()">Test JavaScript</button>
+        <p id="js-result">Click button to test JavaScript</p>
+    </div>
+    
+    <script>
+        console.log('🔧 Test Dashboard Loaded');
+        
+        function testJS() {
+            document.getElementById('js-result').innerHTML = '✅ JavaScript is working!';
+            console.log('✅ JavaScript function executed');
+        }
+        
+        document.getElementById('test-province').addEventListener('change', function() {
+            const value = this.value;
+            const text = this.options[this.selectedIndex].text;
+            document.getElementById('province-result').innerHTML = 
+                value ? `Selected: ${text} (ID: ${value})` : 'No province selected';
+            console.log('Province changed:', {value, text});
+        });
+        
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('✅ DOM Content Loaded');
+            
+            // Test element access
+            const elements = {
+                province: document.getElementById('test-province'),
+                result: document.getElementById('province-result'),
+                jsResult: document.getElementById('js-result')
+            };
+            
+            console.log('Elements found:', elements);
+            
+            // Verify all elements exist
+            let allFound = true;
+            for (const [name, element] of Object.entries(elements)) {
+                if (!element) {
+                    console.error(`❌ Element not found: ${name}`);
+                    allFound = false;
+                } else {
+                    console.log(`✅ Element found: ${name}`);
+                }
+            }
+            
+            if (allFound) {
+                console.log('🎉 All test elements found successfully');
+            }
+        });
+    </script>
+</body>
+</html>
