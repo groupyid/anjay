@@ -361,30 +361,7 @@
         <!-- Overview Tab (Original Content) -->
         <div id="overview" class="tab-content active">
             
-            <!-- EMERGENCY VISIBLE TEST -->
-            <div style="background: #007bff; color: white; padding: 20px; margin: 10px 0; border-radius: 8px; text-align: center;">
-                <h2>🚨 DASHBOARD TERLIHAT!</h2>
-                <p>Jika Anda melihat kotak biru ini, maka HTML dan CSS bekerja dengan baik!</p>
-                <p>Timestamp: <span id="timestamp"></span></p>
-            </div>
-            
-            <!-- DEBUG INFO FOR DKI JAKARTA -->
-            <div style="background: #28a745; color: white; padding: 15px; margin: 10px 0; border-radius: 8px;">
-                <h3>🔍 Debug Info for DKI Jakarta</h3>
-                <p><strong>Instructions:</strong></p>
-                <ol style="text-align: left; margin-left: 20px;">
-                    <li>Pilih "DKI Jakarta" di dropdown provinsi</li>
-                    <li>Buka browser console (F12)</li>
-                    <li>Lihat log messages untuk API calls dan responses</li>
-                    <li>Check if data contains Jakarta information</li>
-                </ol>
-                <p><strong>Expected Logs:</strong> 🏙️ Province changed → 📊 Chart API call → 🗺️ Map API call → API responses</p>
-            </div>
-            
-            <script>
-                document.getElementById('timestamp').textContent = new Date().toLocaleString('id-ID');
-                console.log('🚨 EMERGENCY TEST: Dashboard HTML loaded at', new Date());
-            </script>
+
             {% if ews and ews|length > 0 %}
             <div class="card ews-card">
                 <h2>⚠️ Early Warning System</h2>
