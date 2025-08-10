@@ -36,18 +36,27 @@ def run_schema_migration():
             # Add columns manually (since Flask-Migrate might not be configured)
             print("📊 Adding province_id and regency_id columns...")
             
+            # Use SQLAlchemy 2.x compatible syntax
+            from sqlalchemy import text
+            
             if 'province_id' not in columns:
-                db.engine.execute('ALTER TABLE user ADD COLUMN province_id INTEGER')
+                with db.engine.connect() as conn:
+                    conn.execute(text('ALTER TABLE user ADD COLUMN province_id INTEGER'))
+                    conn.commit()
                 print("✅ Added province_id column")
             
             if 'regency_id' not in columns:
-                db.engine.execute('ALTER TABLE user ADD COLUMN regency_id INTEGER')
+                with db.engine.connect() as conn:
+                    conn.execute(text('ALTER TABLE user ADD COLUMN regency_id INTEGER'))
+                    conn.commit()
                 print("✅ Added regency_id column")
             
             # Add foreign key constraints (if database supports it)
             try:
-                db.engine.execute('CREATE INDEX IF NOT EXISTS ix_user_province_id ON user (province_id)')
-                db.engine.execute('CREATE INDEX IF NOT EXISTS ix_user_regency_id ON user (regency_id)')
+                with db.engine.connect() as conn:
+                    conn.execute(text('CREATE INDEX IF NOT EXISTS ix_user_province_id ON user (province_id)'))
+                    conn.execute(text('CREATE INDEX IF NOT EXISTS ix_user_regency_id ON user (regency_id)'))
+                    conn.commit()
                 print("✅ Added indexes for foreign keys")
             except Exception as e:
                 print(f"⚠️  Could not add indexes: {e}")
