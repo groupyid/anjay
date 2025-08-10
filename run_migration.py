@@ -41,21 +41,21 @@ def run_schema_migration():
             
             if 'province_id' not in columns:
                 with db.engine.connect() as conn:
-                    conn.execute(text('ALTER TABLE user ADD COLUMN province_id INTEGER'))
+                    conn.execute(text('ALTER TABLE "user" ADD COLUMN province_id INTEGER'))
                     conn.commit()
                 print("✅ Added province_id column")
             
             if 'regency_id' not in columns:
                 with db.engine.connect() as conn:
-                    conn.execute(text('ALTER TABLE user ADD COLUMN regency_id INTEGER'))
+                    conn.execute(text('ALTER TABLE "user" ADD COLUMN regency_id INTEGER'))
                     conn.commit()
                 print("✅ Added regency_id column")
             
             # Add foreign key constraints (if database supports it)
             try:
                 with db.engine.connect() as conn:
-                    conn.execute(text('CREATE INDEX IF NOT EXISTS ix_user_province_id ON user (province_id)'))
-                    conn.execute(text('CREATE INDEX IF NOT EXISTS ix_user_regency_id ON user (regency_id)'))
+                    conn.execute(text('CREATE INDEX IF NOT EXISTS ix_user_province_id ON "user" (province_id)'))
+                    conn.execute(text('CREATE INDEX IF NOT EXISTS ix_user_regency_id ON "user" (regency_id)'))
                     conn.commit()
                 print("✅ Added indexes for foreign keys")
             except Exception as e:

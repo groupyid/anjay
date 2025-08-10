@@ -25,13 +25,13 @@ def force_add_columns():
             sql_commands = []
             
             if 'province_id' not in current_columns:
-                sql_commands.append("ALTER TABLE user ADD COLUMN province_id INTEGER")
+                sql_commands.append('ALTER TABLE "user" ADD COLUMN province_id INTEGER')
                 print("➕ Will add province_id column")
             else:
                 print("ℹ️  province_id already exists")
             
             if 'regency_id' not in current_columns:
-                sql_commands.append("ALTER TABLE user ADD COLUMN regency_id INTEGER")
+                sql_commands.append('ALTER TABLE "user" ADD COLUMN regency_id INTEGER')
                 print("➕ Will add regency_id column")
             else:
                 print("ℹ️  regency_id already exists")
@@ -72,8 +72,8 @@ def force_add_columns():
                 try:
                     print("\n🔗 Adding indexes...")
                     with db.engine.connect() as conn:
-                        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_province_id ON user (province_id)"))
-                        conn.execute(text("CREATE INDEX IF NOT EXISTS ix_user_regency_id ON user (regency_id)"))
+                        conn.execute(text('CREATE INDEX IF NOT EXISTS ix_user_province_id ON "user" (province_id)'))
+                        conn.execute(text('CREATE INDEX IF NOT EXISTS ix_user_regency_id ON "user" (regency_id)'))
                         conn.commit()
                     print("✅ Indexes added successfully")
                 except Exception as e:
