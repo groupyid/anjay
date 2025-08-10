@@ -421,6 +421,11 @@
 
                     <div class="chart-container">
                         <canvas id="trendChart" height="220"></canvas>
+                        <div id="chart-fallback" style="display:block; text-align:center; padding:40px; color:#666; border:1px dashed #ccc; border-radius:8px; background:#f9f9f9;">
+                            <h3>📊 Chart Loading...</h3>
+                            <p>Trend chart will appear here when data loads</p>
+                            <small>If this message persists, check browser console for errors</small>
+                        </div>
                     </div>
 
                     <h3 class="card-header" style="font-size: 1.3em; border-top: 1px solid var(--border-color); padding-top: 24px; margin-top: 16px;">Statistik & Insight</h3>
@@ -461,6 +466,11 @@
 
                     <div class="map-container">
                         <div id="map"></div>
+                        <div id="map-fallback" style="display:flex; text-align:center; padding:40px; color:#666; border:1px dashed #ccc; border-radius:8px; height:350px; flex-direction:column; justify-content:center; align-items:center; background:#f9f9f9;">
+                            <h3>🗺️ Map Loading...</h3>
+                            <p>Interactive map will appear here when data loads</p>
+                            <small>If this message persists, check browser console for errors</small>
+                        </div>
                         <p class="map-caption">Titik menampilkan agregasi per wilayah untuk topik terpilih.</p>
                     </div>
 
@@ -545,9 +555,29 @@
     
     if (typeof Chart === 'undefined') {
         console.error('Chart.js failed to load');
+        // Immediately show chart fallback
+        setTimeout(() => {
+            const chartCanvas = document.getElementById('trendChart');
+            const chartFallback = document.getElementById('chart-fallback');
+            if (chartCanvas && chartFallback) {
+                chartCanvas.style.display = 'none';
+                chartFallback.style.display = 'block';
+                chartFallback.innerHTML = '<h3>❌ Chart.js Failed to Load</h3><p>Please check internet connection</p>';
+            }
+        }, 100);
     }
     if (typeof L === 'undefined') {
         console.error('Leaflet.js failed to load');
+        // Immediately show map fallback
+        setTimeout(() => {
+            const mapContainer = document.getElementById('map');
+            const mapFallback = document.getElementById('map-fallback');
+            if (mapContainer && mapFallback) {
+                mapContainer.style.display = 'none';
+                mapFallback.style.display = 'flex';
+                mapFallback.innerHTML = '<h3>❌ Leaflet.js Failed to Load</h3><p>Please check internet connection</p>';
+            }
+        }, 100);
     }
     // Single dashboard - no tabs needed
     // Initialize dashboard content on load
@@ -1267,7 +1297,17 @@
            const overviewTab = document.getElementById('overview');
            if (overviewTab && overviewTab.classList.contains('active')) {
                console.log('Initializing map...');
-               initMap();
+               if (typeof L !== 'undefined') {
+                   initMap();
+               } else {
+                   console.error('Leaflet not loaded, showing fallback');
+                   const mapContainer = document.getElementById('map');
+                   const mapFallback = document.getElementById('map-fallback');
+                   if (mapContainer && mapFallback) {
+                       mapContainer.style.display = 'none';
+                       mapFallback.style.display = 'flex';
+                   }
+               }
            }
            
            // Set up all event listeners
@@ -1328,20 +1368,26 @@
            // Load chart and bubbles in parallel
            console.log('Loading chart and bubbles...');
            Promise.all([
-               loadTrendChart().catch(e => {
+               loadTrendChart().then(() => {
+                   console.log('Chart loaded successfully, hiding fallback');
+                   const chartFallback = document.getElementById('chart-fallback');
+                   if (chartFallback) chartFallback.style.display = 'none';
+               }).catch(e => {
                    console.error('loadTrendChart failed:', e);
-                   // Show fallback chart content
-                   const chartContainer = document.querySelector('.chart-container');
-                   if (chartContainer) {
-                       chartContainer.innerHTML = '<p style="text-align:center;padding:40px;color:#666;">Chart temporarily unavailable</p>';
+                   const chartFallback = document.getElementById('chart-fallback');
+                   if (chartFallback) {
+                       chartFallback.innerHTML = '<h3>❌ Chart Load Failed</h3><p>' + e.message + '</p>';
                    }
                }),
-               renderTopicBubbles(topicElement.value || '', mapDaysElement.value || '30').catch(e => {
+               renderTopicBubbles(topicElement.value || '', mapDaysElement.value || '30').then(() => {
+                   console.log('Map loaded successfully, hiding fallback');
+                   const mapFallback = document.getElementById('map-fallback');
+                   if (mapFallback) mapFallback.style.display = 'none';
+               }).catch(e => {
                    console.error('renderTopicBubbles failed:', e);
-                   // Show fallback map content
-                   const mapContainer = document.getElementById('map');
-                   if (mapContainer) {
-                       mapContainer.innerHTML = '<p style="text-align:center;padding:40px;color:#666;">Map temporarily unavailable</p>';
+                   const mapFallback = document.getElementById('map-fallback');
+                   if (mapFallback) {
+                       mapFallback.innerHTML = '<h3>❌ Map Load Failed</h3><p>' + e.message + '</p>';
                    }
                })
            ]);
