@@ -260,12 +260,24 @@ def register_routes(app):
         phrase_counter = _collections.Counter()
         if filtered_chats:
             questions = [c.question for c in filtered_chats if c.question]
-            # Try clustering first
-            clustered_topics = find_topic_clusters(questions, min_cluster_size=2) # Using min_cluster_size=2 as agreed
+            print(f"DEBUG: Dashboard - Processing {len(questions)} questions for topic clustering")
+            
+            # Try clustering first with error handling
+            clustered_topics = []
+            try:
+                if len(questions) >= 2:  # Minimum data check
+                    clustered_topics = find_topic_clusters(questions, min_cluster_size=2)
+                else:
+                    print(f"DEBUG: Dashboard - Not enough questions for clustering: {len(questions)}")
+            except Exception as e:
+                print(f"DEBUG: Dashboard - Topic clustering failed: {e}")
+                clustered_topics = []
             
             if clustered_topics:
+                print(f"DEBUG: Dashboard - Using clustered topics: {len(clustered_topics)}")
                 top_topics = clustered_topics
             else:
+                print("DEBUG: Dashboard - Fallback to keyword frequency method")
                 # Fallback to old method if clustering fails or not enough data
                 for c in filtered_chats:
                     phrase_counter.update(extract_phrases(c.question))

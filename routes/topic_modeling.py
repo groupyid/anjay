@@ -47,23 +47,52 @@ def find_topic_clusters(texts: list[str], min_cluster_size: int = 2):
 
     # 2. Reduce Dimensionality with UMAP
     print("--- [DEBUG] Step 2/5: Reducing dimensionality with UMAP... ---")
-    umap_embeddings = UMAP(
-        n_neighbors=15,
-        n_components=5, # Reduce to 5 dimensions for faster clustering
-        min_dist=0.0,
-        metric='cosine',
-        random_state=42
-    ).fit_transform(embeddings)
-    print("--- [DEBUG] UMAP transformation complete. ---")
+    try:
+        # Validate embeddings array
+        embeddings = np.array(embeddings)
+        if embeddings.size == 0 or len(embeddings) == 0:
+            print("--- [DEBUG] Empty embeddings array. Cannot proceed with UMAP. ---")
+            return []
+        
+        print(f"--- [DEBUG] Embeddings shape: {embeddings.shape} ---")
+        
+        # Adjust n_neighbors based on data size
+        n_neighbors = min(15, len(embeddings) - 1)
+        if n_neighbors < 2:
+            print(f"--- [DEBUG] Too few samples for UMAP (need at least 2, got {len(embeddings)}). ---")
+            return []
+        
+        umap_embeddings = UMAP(
+            n_neighbors=n_neighbors,
+            n_components=min(5, len(embeddings) - 1), # Ensure components <= samples
+            min_dist=0.0,
+            metric='cosine',
+            random_state=42
+        ).fit_transform(embeddings)
+        print(f"--- [DEBUG] UMAP transformation complete. Shape: {umap_embeddings.shape} ---")
+        
+    except Exception as e:
+        print(f"--- [DEBUG] UMAP transformation failed: {e} ---")
+        return []
 
     # 3. Cluster with HDBSCAN
     print("--- [DEBUG] Step 3/5: Clustering with HDBSCAN... ---")
-    clusterer = HDBSCAN(
-        min_cluster_size=min_cluster_size,
-        metric='euclidean',
-        cluster_selection_method='eom'
-    ).fit(umap_embeddings)
-    print(f"--- [DEBUG] HDBSCAN found labels: {np.unique(clusterer.labels_)} ---")
+    try:
+        # Validate UMAP embeddings
+        if len(umap_embeddings) < min_cluster_size:
+            print(f"--- [DEBUG] Not enough samples for clustering (need {min_cluster_size}, got {len(umap_embeddings)}). ---")
+            return []
+        
+        clusterer = HDBSCAN(
+            min_cluster_size=min_cluster_size,
+            metric='euclidean',
+            cluster_selection_method='eom'
+        ).fit(umap_embeddings)
+        print(f"--- [DEBUG] HDBSCAN found labels: {np.unique(clusterer.labels_)} ---")
+        
+    except Exception as e:
+        print(f"--- [DEBUG] HDBSCAN clustering failed: {e} ---")
+        return []
 
     # Prepare data for topic naming
     docs_df = pd.DataFrame(texts, columns=["Doc"])
