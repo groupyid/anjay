@@ -898,28 +898,52 @@ def register_routes(app):
                     query = query.filter(User.region.in_(regency_names))
                     print(f"DEBUG: Found {query.count()} chats with exact regency match")
                     
-                    # Strategy 2: If no exact match, try fuzzy matching with province name
+                    # Strategy 2: If no exact match, try fuzzy matching with province name and aliases
                     if query.count() == 0:
                         province = Province.query.get(pid_int)
                         if province:
                             province_name = province.name.lower()
-                            # Find users whose region contains province name (fuzzy match)
+                            
+                            # Build search conditions with aliases
+                            search_conditions = [db.func.lower(User.region).contains(province_name)]
+                            
+                            # Special handling for Jakarta
+                            if 'jakarta' in province_name or 'dki' in province_name:
+                                jakarta_aliases = ['jakarta', 'dki jakarta', 'dki', 'jakarta pusat', 
+                                                 'jakarta utara', 'jakarta selatan', 'jakarta timur', 'jakarta barat']
+                                for alias in jakarta_aliases:
+                                    search_conditions.append(db.func.lower(User.region).contains(alias))
+                                print(f"DEBUG: Added Jakarta aliases for search")
+                            
+                            # Apply fuzzy search with OR conditions
                             query = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
-                                .filter(db.func.lower(User.region).contains(province_name))
+                                .filter(db.or_(*search_conditions))
                             if start_time:
                                 query = query.filter(ChatHistory.created_at >= start_time)
-                            print(f"DEBUG: Fuzzy match found {query.count()} chats for province '{province_name}'")
+                            print(f"DEBUG: Fuzzy match found {query.count()} chats for province '{province_name}' with aliases")
                 else:
-                    # If no regencies found, try fallback with province name directly
+                    # If no regencies found, try fallback with province name and aliases
                     province = Province.query.get(pid_int)
                     if province:
                         province_name = province.name.lower()
-                        # Try to find users with region containing province name
+                        
+                        # Build search conditions with aliases
+                        search_conditions = [db.func.lower(User.region).contains(province_name)]
+                        
+                        # Special handling for Jakarta
+                        if 'jakarta' in province_name or 'dki' in province_name:
+                            jakarta_aliases = ['jakarta', 'dki jakarta', 'dki', 'jakarta pusat', 
+                                             'jakarta utara', 'jakarta selatan', 'jakarta timur', 'jakarta barat']
+                            for alias in jakarta_aliases:
+                                search_conditions.append(db.func.lower(User.region).contains(alias))
+                            print(f"DEBUG: Fallback added Jakarta aliases")
+                        
+                        # Apply fallback search with OR conditions
                         query = ChatHistory.query.join(User, ChatHistory.user_id == User.id) \
-                            .filter(db.func.lower(User.region).contains(province_name))
+                            .filter(db.or_(*search_conditions))
                         if start_time:
                             query = query.filter(ChatHistory.created_at >= start_time)
-                        print(f"DEBUG: Fallback strategy found {query.count()} chats for province '{province_name}'")
+                        print(f"DEBUG: Fallback strategy found {query.count()} chats for province '{province_name}' with aliases")
                     else:
                         query = query.filter(False) # No results
                         print(f"DEBUG: No regencies and no province found for ID {province_id}")
@@ -1105,8 +1129,26 @@ def register_routes(app):
                 regencies = Regency.query.filter_by(province_id=province_id).all()
                 regency_names = [r.name.replace('KABUPATEN ', '').replace('KOTA ', '') for r in regencies]
                 print(f"DEBUG: Found {len(regencies)} regencies for province {province_id}: {regency_names}")
-                if regency_names:
-                    conditions = [User.region.ilike(f'%{name}%') for name in regency_names]
+                
+                # Add province name aliases for better matching
+                province = Province.query.get(province_id)
+                province_aliases = []
+                if province:
+                    province_name = province.name
+                    province_aliases.append(province_name)
+                    
+                    # Special handling for Jakarta
+                    if 'Jakarta' in province_name or 'DKI' in province_name:
+                        province_aliases.extend(['Jakarta', 'DKI Jakarta', 'DKI', 'Jakarta Pusat', 
+                                               'Jakarta Utara', 'Jakarta Selatan', 'Jakarta Timur', 'Jakarta Barat'])
+                        print(f"DEBUG: Added Jakarta aliases: {province_aliases}")
+                
+                # Combine regency names and province aliases
+                all_search_terms = regency_names + province_aliases
+                print(f"DEBUG: All search terms for province {province_id}: {all_search_terms}")
+                
+                if all_search_terms:
+                    conditions = [User.region.ilike(f'%{name}%') for name in all_search_terms]
                     query = query.filter(db.or_(*conditions))
                 else:
                     query = query.filter(User.region == '__NO_MATCH__')  # No results if no regencies
