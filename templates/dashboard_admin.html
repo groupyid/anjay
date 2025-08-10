@@ -410,15 +410,7 @@
                                 <option value="180">180 hari</option>
                             </select>
                         </div>
-                        <div class="filter-group">
-                            <label for="time-range">Waktu</label>
-                            <select id="time-range">
-                                <option value="5_minutes">5 Menit</option>
-                                <option value="4_hours">4 Jam</option>
-                                <option value="1_day">1 Hari</option>
-                                <option value="1_week" selected>1 Minggu</option>
-                            </select>
-                        </div>
+
                     </div>
 
                     <div class="chart-container">
@@ -801,8 +793,7 @@
             const days = document.getElementById('trend-days').value;
             const region = document.getElementById('admin-region').value;
             const provinceId = document.getElementById('filter-province').value;
-            const timeRange = timeRangeEl.value; // Get time range
-            const params = new URLSearchParams({ period, days, region, province_id: provinceId, time_range: timeRange }); // Add time_range
+            const params = new URLSearchParams({ period, days, region, province_id: provinceId });
             const res = await fetch(`/api/admin/trends?${params.toString()}`);
             const data = await res.json();
             const total = (data.matrix || []).reduce((sum, row) => sum + row.reduce((a,b)=>a+b,0), 0);
@@ -817,20 +808,18 @@
              const daysElement = document.getElementById('trend-days');
              const regionElement = document.getElementById('admin-region');
              const provinceElement = document.getElementById('filter-province');
-             const timeRangeElement = document.getElementById('time-range');
              
              const period = periodElement?.value || 'week';
              const days = daysElement?.value || '90';
              const region = regionElement?.value || '';
              const provinceId = provinceElement?.value || '';
-             const timeRange = timeRangeElement?.value || '1_week';
              
              console.log(`📊 Chart parameters:`, {
-                 period, days, region, provinceId, timeRange,
+                 period, days, region, provinceId,
                  hasProvinceElement: !!provinceElement,
                  provinceElementValue: provinceElement?.value
              });
-             const params = new URLSearchParams({ period, days, region, province_id: provinceId, time_range: timeRange }); // Add time_range
+             const params = new URLSearchParams({ period, days, region, province_id: provinceId });
              console.log(`📊 Chart API call: /api/admin/trends?${params.toString()}`);
              
              const res = await fetch(`/api/admin/trends?${params.toString()}`);
@@ -989,12 +978,10 @@
          bubbleLayer.clearLayers();
                  const regionElement = document.getElementById('admin-region');
         const provinceElement = document.getElementById('filter-province');
-        const timeRangeElement = document.getElementById('time-range');
         const region = regionElement?.value || '';
         const provinceId = provinceElement?.value || '';
-        const timeRange = timeRangeElement?.value || '1_week';
          const topicParam = topic || '';
-         const params = new URLSearchParams({ topic: topicParam, days, region, province_id: provinceId, time_range: timeRange }); // Add time_range
+         const params = new URLSearchParams({ topic: topicParam, days, region, province_id: provinceId });
          
          console.log(`🗺️ Map API call: /api/admin/topic-distribution?${params.toString()}`);
          
@@ -1269,7 +1256,7 @@
            // Set up all event listeners
            const periodElement = document.getElementById('trend-period');
            const daysElement = document.getElementById('trend-days');
-           const timeRangeElement = document.getElementById('time-range');
+
            const provinceElement = document.getElementById('filter-province');
            const regionElement = document.getElementById('admin-region');
            
@@ -1325,12 +1312,7 @@
            if (mapDaysElement) {
                addDebouncedListener(mapDaysElement, 'change', () => renderTopicBubbles(topicElement.value || '', mapDaysElement.value || '30'), 200);
            }
-           if (timeRangeElement) {
-               addDebouncedListener(timeRangeElement, 'change', async () => {
-                   await loadTrendChart();
-                   await renderTopicBubbles(topicElement.value || '', mapDaysElement.value || '30');
-               }, 200);
-           }
+
            
            // Load chart and bubbles in parallel
            console.log('Loading chart and bubbles...');
