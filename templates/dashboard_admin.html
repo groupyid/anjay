@@ -360,7 +360,6 @@
         <div class="nav-tabs">
             <button class="nav-tab active" onclick="showTab('overview')">Overview</button>
             <button class="nav-tab" onclick="showTab('users')">Manajemen User</button>
-            <button class="nav-tab" onclick="showTab('analytics')">Analytics</button>
             <button class="nav-tab" onclick="showTab('logs')">System Logs</button>
         </div>
 
@@ -583,36 +582,7 @@
             </div>
         </div>
 
-        <!-- Analytics Tab -->
-        <div id="analytics" class="tab-content">
-            <div class="analytics-card">
-                <h3>📈 User Registration Trend</h3>
-                <canvas id="registrationChart" class="chart-small"></canvas>
-            </div>
-            
-            <div class="analytics-card">
-                <h3>💬 Chat Activity by Region</h3>
-                <canvas id="regionActivityChart" class="chart-small"></canvas>
-            </div>
-            
-            <div class="analytics-card">
-                <h3>🕒 System Performance</h3>
-                <div class="stats-grid">
-                    <div style="text-align: center;">
-                        <strong>Response Time</strong><br>
-                        <span id="avg-response-time">-</span>ms
-                    </div>
-                    <div style="text-align: center;">
-                        <strong>Total Queries</strong><br>
-                        <span id="total-queries">-</span>
-                    </div>
-                    <div style="text-align: center;">
-                        <strong>Error Rate</strong><br>
-                        <span id="error-rate">-</span>%
-                    </div>
-                </div>
-            </div>
-        </div>
+
 
         <!-- System Logs Tab -->
         <div id="logs" class="tab-content">
