@@ -1,0 +1,88 @@
+#--------------------------------------------------------------------
+# ENVIRONMENT
+#--------------------------------------------------------------------
+
+CI_ENVIRONMENT = development
+
+#--------------------------------------------------------------------
+# APP
+#--------------------------------------------------------------------
+
+app.baseURL = 'http://localhost/car-rental-system/public/'
+app.indexPage = ''
+
+#--------------------------------------------------------------------
+# DATABASE
+#--------------------------------------------------------------------
+
+database.default.hostname = localhost
+database.default.database = car_rental_db
+database.default.username = root
+database.default.password = 
+database.default.DBDriver = MySQLi
+database.default.DBPrefix =
+database.default.port = 3306
+
+#--------------------------------------------------------------------
+# SESSION
+#--------------------------------------------------------------------
+
+session.driver = 'CodeIgniter\Session\Handlers\FileHandler'
+session.cookieName = 'ci_session'
+session.expiration = 7200
+session.savePath = null
+session.matchIP = false
+session.timeToUpdate = 300
+session.regenerateDestroy = false
+
+#--------------------------------------------------------------------
+# COOKIE
+#--------------------------------------------------------------------
+
+cookie.prefix = ''
+cookie.expires = 0
+cookie.path = '/'
+cookie.domain = ''
+cookie.secure = false
+cookie.httponly = false
+cookie.raw = false
+cookie.sameSite = 'Lax'
+
+#--------------------------------------------------------------------
+# SECURITY
+#--------------------------------------------------------------------
+
+security.csrfProtection = true
+security.tokenName = 'csrf_token_name'
+security.headerName = 'X-CSRF-TOKEN'
+security.cookieName = 'csrf_cookie_name'
+security.expire = 7200
+security.regenerate = true
+security.redirect = true
+security.samesite = 'Lax'
+
+#--------------------------------------------------------------------
+# LOGGING
+#--------------------------------------------------------------------
+
+logger.threshold = 4
+
+#--------------------------------------------------------------------
+# CACHE
+#--------------------------------------------------------------------
+
+cache.handler = 'dummy'
+cache.backup = 'file'
+cache.storePath = WRITEPATH . 'cache/'
+cache.default = 'dummy'
+cache.prefix = 'ci_'
+
+#--------------------------------------------------------------------
+# ENCRYPTION
+#--------------------------------------------------------------------
+
+encryption.driver = 'OpenSSL'
+encryption.cipher = 'AES-256-CBC'
+encryption.key = 'your-secret-key-here'
+encryption.options = []
+encryption.digest = 'SHA512'
