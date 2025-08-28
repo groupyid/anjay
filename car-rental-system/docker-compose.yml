@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # PHP Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: car_rental_app
+    restart: unless-stopped
+    working_dir: /var/www/
+    volumes:
+      - ./:/var/www
+      - ./docker/php/local.ini:/usr/local/etc/php/conf.d/local.ini
+    networks:
+      - car_rental_network
+
+  # Nginx Service
+  nginx:
+    image: nginx:alpine
+    container_name: car_rental_nginx
+    restart: unless-stopped
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www
+      - ./docker/nginx/conf.d/:/etc/nginx/conf.d/
+    networks:
+      - car_rental_network
+    depends_on:
+      - app
+
+  # MySQL Service
+  db:
+    image: mysql:8.0
+    container_name: car_rental_db
+    restart: unless-stopped
+    environment:
+      MYSQL_DATABASE: car_rental_db
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_USER: car_rental_user
+      MYSQL_PASSWORD: car_rental_password
+      SERVICE_TAGS: dev
+      SERVICE_NAME: mysql
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./docker/mysql/data:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d
+    networks:
+      - car_rental_network
+
+  # phpMyAdmin Service
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: car_rental_phpmyadmin
+    restart: unless-stopped
+    environment:
+      PMA_HOST: db
+      PMA_PORT: 3306
+      PMA_USER: root
+      PMA_PASSWORD: root_password
+    ports:
+      - "8080:80"
+    networks:
+      - car_rental_network
+    depends_on:
+      - db
+
+networks:
+  car_rental_network:
+    driver: bridge
+
+volumes:
+  db_data:
+    driver: local
